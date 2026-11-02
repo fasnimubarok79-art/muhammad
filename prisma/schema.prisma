@@ -163,7 +163,12 @@ model Clip {
   description     String?
   thumbnailKey    String?
   transcriptRef   String? // "<start>-<end>" window in the source transcript
-  score           Float? // estimate only
+  score           Float? // viral potential, estimate only
+  hookScore       Float?
+  engagementScore Float?
+  hookText        String?
+  targetDuration  Int? // 15 | 30 | 45 | 60 (or the speech length for very short sources)
+  insights        Json? // { why, moments, momentsBasis, platforms }
   scoreReasons    Json?
   status          String   @default("candidate") // candidate | accepted | rejected
   favorite        Boolean  @default(false)

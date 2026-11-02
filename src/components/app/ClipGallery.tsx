@@ -15,6 +15,11 @@ export type GalleryClip = {
   title: string;
   description: string | null;
   score: number | null;
+  hookScore: number | null;
+  engagementScore: number | null;
+  hookText: string | null;
+  targetDuration: number | null;
+  insights: { why: string; moments: string[]; momentsBasis: string; platforms: Array<{ platform: string; aspect: string }> } | null;
   status: string;
   favorite: boolean;
   hasThumbnail: boolean;
@@ -114,12 +119,31 @@ function ClipCard({ clip, selected, onSelect, onChanged }: { clip: GalleryClip; 
           {clip.description && <p className="mt-2 line-clamp-2 text-[13px] text-muted">{clip.description}</p>}
         </div>
         {clip.score != null && (
-          <div className="shrink-0 text-right" title="Estimated from hook, pacing, dead air, completeness, length and topic. Not a guarantee of views.">
+          <div className="shrink-0 text-right" title="Viral potential: an estimate from hook, pacing, dead air, completeness, topic and length. Not a guarantee of views.">
             <p className="font-display text-[22px] font-extrabold leading-none tc">{Math.round(clip.score)}</p>
-            <p className="text-[11px] text-muted">score (est.)</p>
+            <p className="text-[11px] text-muted">viral (est.)</p>
           </div>
         )}
       </div>
+      {(clip.hookScore != null || clip.hookText) && (
+        <div className="mt-3 px-1">
+          <dl className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] tc">
+            {clip.hookScore != null && <div><dt className="inline text-muted">Hook </dt><dd className="inline font-semibold">{Math.round(clip.hookScore)}</dd></div>}
+            {clip.engagementScore != null && <div><dt className="inline text-muted">Engagement </dt><dd className="inline font-semibold">{Math.round(clip.engagementScore)}</dd></div>}
+            {clip.targetDuration != null && <div><dt className="inline text-muted">Target </dt><dd className="inline font-semibold">{clip.targetDuration}s</dd></div>}
+          </dl>
+          {clip.hookText && <p className="mt-2 border-l-2 border-edit pl-2 text-[13px] text-ink">&ldquo;{clip.hookText}&rdquo;</p>}
+          {clip.insights?.why && <p className="mt-1.5 text-[12px] text-muted">Why: {clip.insights.why}</p>}
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {clip.insights?.moments.map((m) => (
+              <span key={m} title={`Label from ${clip.insights?.momentsBasis}`} className="rounded-full border border-line px-2 py-0.5 text-[11px] capitalize text-muted">{m}</span>
+            ))}
+            {clip.insights?.platforms.map((p) => (
+              <span key={p.platform} className="rounded-full bg-surface2 px-2 py-0.5 text-[11px] text-muted">{p.platform} {p.aspect}</span>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-2 px-1">
         {clip.status !== "candidate" && <span className={`text-[12px] font-semibold ${clip.status === "accepted" ? "text-system" : "text-muted"}`}>{clip.status === "accepted" ? "Accepted" : "Rejected"}</span>}
         {clip.latestRender && <StatusPill status={clip.latestRender.status} progress={clip.latestRender.progress} />}
@@ -153,6 +177,7 @@ export function ClipGallery({ projectId, refreshKey }: { projectId: string; refr
   const [status, setStatus] = useState("");
   const [fav, setFav] = useState(false);
   const [sort, setSort] = useState("score");
+  const [length, setLength] = useState("");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<{ total: number; pageSize: number; clips: GalleryClip[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -164,13 +189,14 @@ export function ClipGallery({ projectId, refreshKey }: { projectId: string; refr
     if (q.trim()) sp.set("q", q.trim());
     if (status) sp.set("status", status);
     if (fav) sp.set("favorite", "1");
+    if (length) sp.set("length", length);
     try {
       setData(await api(`/api/clips?${sp}`));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load clips");
     }
-  }, [projectId, q, status, fav, sort, page]);
+  }, [projectId, q, status, fav, sort, page, length]);
 
   useEffect(() => {
     const t = setTimeout(load, q ? 250 : 0);
@@ -210,10 +236,20 @@ export function ClipGallery({ projectId, refreshKey }: { projectId: string; refr
         </select>
         <label className="sr-only" htmlFor="csort">Sort</label>
         <select id="csort" className="field h-9 w-40" value={sort} onChange={(e) => setSort(e.target.value)}>
-          <option value="score">Highest score</option>
+          <option value="score">Highest viral score</option>
+          <option value="hook">Strongest hook</option>
+          <option value="engagement">Highest engagement</option>
           <option value="start">Timeline order</option>
           <option value="newest">Newest</option>
           <option value="duration">Latest end time</option>
+        </select>
+        <label className="sr-only" htmlFor="clen">Length</label>
+        <select id="clen" className="field h-9 w-32" value={length} onChange={(e) => { setLength(e.target.value); setPage(1); }}>
+          <option value="">Any length</option>
+          <option value="15">15 s</option>
+          <option value="30">30 s</option>
+          <option value="45">45 s</option>
+          <option value="60">60 s</option>
         </select>
         <label className="flex h-9 items-center gap-2 text-[13px]">
           <input type="checkbox" className="h-4 w-4 accent-[#3DDC97]" checked={fav} onChange={(e) => { setFav(e.target.checked); setPage(1); }} /> Favourites

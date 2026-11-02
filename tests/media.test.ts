@@ -41,7 +41,7 @@ describe("subtitles", () => {
 describe("clip proposal", () => {
   it("never proposes windows outside the source and starts on sentence boundaries", () => {
     const dur = 30;
-    const clips = proposeClips(words, dur, [], { min: 3, ideal: 6, max: 12 });
+    const clips = proposeClips(words, dur, [], { targets: [{ target: 6, min: 3, ideal: 6, max: 12 }] });
     expect(clips.length).toBeGreaterThan(0);
     const starts = new Set(toSentences(words).map((s) => s.start));
     for (const c of clips) {

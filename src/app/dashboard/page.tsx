@@ -8,7 +8,7 @@ import { usePoll } from "@/hooks/usePoll";
 import { api, fmtTime } from "@/lib/client";
 
 type Job = { id: string; kind: string; status: string; progress: number; error: string | null; createdAt: string; projectId: string; clipId: string | null; clipTitle?: string | null; sourceName?: string | null; outputMeta?: { durationSec?: number; video?: { width: number; height: number } } | null };
-type Dash = { stats: { projects: number; uploads: number; clips: number; activeJobs: number }; tokens: { balance: number; unlimited: boolean }; activeJobs: Job[]; recentRenders: Job[]; activity: Job[] };
+type Dash = { stats: { projects: number; uploads: number; clips: number; activeJobs: number; videosAnalyzed: number; minutesProcessed: number }; tokens: { balance: number; unlimited: boolean }; activeJobs: Job[]; recentRenders: Job[]; activity: Job[] };
 type Health = { checks: Record<string, { ok: boolean; detail: string }> };
 
 const SERVICE_LABEL: Record<string, string> = { database: "Database", ffmpeg: "FFmpeg", ffprobe: "FFprobe", whisper: "Whisper STT", storage: "Storage", worker: "Background worker" };
@@ -39,9 +39,11 @@ export default function Dashboard() {
       {!data && !error && <div className="mt-10"><Spinner /></div>}
       {data && (
         <>
-          <section aria-label="Totals" className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-5">
+          <section aria-label="Totals" className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
             <Stat label="Projects" value={data.stats.projects} />
             <Stat label="Videos uploaded" value={data.stats.uploads} />
+            <Stat label="Videos analyzed" value={data.stats.videosAnalyzed} />
+            <Stat label="Minutes processed" value={data.stats.minutesProcessed.toLocaleString("id-ID")} />
             <Stat label="Clips generated" value={data.stats.clips} />
             <Stat label="Jobs running" value={data.stats.activeJobs} />
             <Stat label="Tokens left" value={data.tokens.unlimited ? "Unlimited" : data.tokens.balance.toLocaleString("id-ID")} />

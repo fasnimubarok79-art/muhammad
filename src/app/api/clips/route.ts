@@ -9,7 +9,8 @@ const Query = z.object({
   q: z.string().trim().max(100).optional(),
   status: z.enum(["candidate", "accepted", "rejected"]).optional(),
   favorite: z.enum(["1"]).optional(),
-  sort: z.enum(["score", "newest", "start", "duration"]).default("score"),
+  length: z.coerce.number().int().min(1).max(600).optional(),
+  sort: z.enum(["score", "hook", "engagement", "newest", "start", "duration"]).default("score"),
   page: z.coerce.number().int().min(1).max(10_000).default(1),
   pageSize: z.coerce.number().int().min(1).max(48).default(12),
 });
@@ -21,10 +22,11 @@ export const GET = authedRoute(async ({ req, user }) => {
     ...(q.projectId ? { projectId: q.projectId } : {}),
     ...(q.status ? { status: q.status } : {}),
     ...(q.favorite ? { favorite: true } : {}),
+    ...(q.length ? { targetDuration: q.length } : {}),
     ...(q.q ? { OR: [{ title: { contains: q.q, mode: "insensitive" } }, { description: { contains: q.q, mode: "insensitive" } }] } : {}),
   };
   const orderBy: Prisma.ClipOrderByWithRelationInput[] =
-    q.sort === "newest" ? [{ createdAt: "desc" }] : q.sort === "start" ? [{ startSec: "asc" }] : q.sort === "duration" ? [{ endSec: "desc" }] : [{ score: { sort: "desc", nulls: "last" } }, { startSec: "asc" }];
+    q.sort === "hook" ? [{ hookScore: { sort: "desc", nulls: "last" } }] : q.sort === "engagement" ? [{ engagementScore: { sort: "desc", nulls: "last" } }] : q.sort === "newest" ? [{ createdAt: "desc" }] : q.sort === "start" ? [{ startSec: "asc" }] : q.sort === "duration" ? [{ endSec: "desc" }] : [{ score: { sort: "desc", nulls: "last" } }, { startSec: "asc" }];
   const [total, clips] = await Promise.all([
     db.clip.count({ where }),
     db.clip.findMany({

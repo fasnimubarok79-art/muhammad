@@ -22,7 +22,7 @@ type Props = {
 };
 
 const FACTOR: Record<string, string> = {
-  hook: "Smart Hook", speech_density: "Pacing", low_dead_air: "Dead air", complete_thought: "Complete thought", length_fit: "Length", topic_relevance: "Highlight / topic",
+  hook: "Smart Hook", speech_density: "Pacing", low_dead_air: "Dead air", complete_thought: "Complete thought", length_fit: "Length", topic_relevance: "Highlight / topic", emphasis: "Emphasis",
 };
 
 function Tool({ title, tag, children }: { title: string; tag?: string; children: ReactNode }) {

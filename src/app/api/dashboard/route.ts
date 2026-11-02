@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 /** All numbers come from the database for the signed-in user. */
 export const GET = authedRoute(async ({ user }) => {
   const mine = { userId: user.id };
-  const [projects, uploads, clips, active, recentRenders, activity, balance] = await Promise.all([
+  const [analyzed, projects, uploads, clips, active, recentRenders, activity, balance] = await Promise.all([
+    db.sourceVideo.aggregate({ where: { project: mine, transcript: { isNot: null } }, _count: { _all: true }, _sum: { durationSec: true } }),
     db.project.count({ where: mine }),
     db.sourceVideo.count({ where: { project: mine, storageKey: { not: null } } }),
     db.clip.count({ where: { project: mine } }),
@@ -17,7 +18,7 @@ export const GET = authedRoute(async ({ user }) => {
     db.user.findUniqueOrThrow({ where: { id: user.id }, select: { tokenBalance: true, role: true } }),
   ]);
   return json({
-    stats: { projects, uploads, clips, activeJobs: active.length },
+    stats: { projects, uploads, clips, activeJobs: active.length, videosAnalyzed: analyzed._count._all, minutesProcessed: Math.round(((analyzed._sum.durationSec ?? 0) / 60) * 10) / 10 },
     tokens: { balance: balance.tokenBalance, unlimited: balance.role === "OWNER_ADMIN" },
     activeJobs: active.map(publicJob),
     recentRenders: recentRenders.map((j) => ({ ...publicJob(j), clipTitle: j.clip?.title ?? null })),
