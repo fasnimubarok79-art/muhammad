@@ -19,7 +19,7 @@ Alur job: `queued → validating → downloading → analyzing → transcribing 
 
 ## Menjalankan secara lokal
 
-Prasyarat: Node 22, PostgreSQL 14+, FFmpeg + FFprobe, Python 3.10+, font Inter terpasang di sistem (untuk subtitle yang di-burn).
+Prasyarat: Node 22, PostgreSQL 14+, FFmpeg + FFprobe, Python 3.10+. Font subtitle sudah disertakan di `worker/fonts`.
 
 ```bash
 npm ci
@@ -44,6 +44,25 @@ npm run worker                  # di terminal lain
 ```
 
 Owner Admin login dengan `OWNER_EMAIL` + `OWNER_INITIAL_PASSWORD`, lalu **wajib** mengganti password sebelum bisa memakai aplikasi. Seed tidak pernah mereset password owner yang sudah ada dan tidak pernah mempromosikan akun lain.
+
+### Windows
+
+Dari Command Prompt (Node.js dan Git sudah terpasang):
+
+```bash
+cd /d C:\
+```
+```bash
+git clone https://github.com/fasnimubarok79-art/muhammad clipkita-pro
+```
+```bash
+powershell -ExecutionPolicy Bypass -File C:\clipkita-pro\scripts\setup-windows.ps1
+```
+```bash
+powershell -ExecutionPolicy Bypass -File C:\clipkita-pro\scripts\start-windows.ps1
+```
+
+Skrip setup memasang Python ke `C:\Python312` dan FFmpeg ke `C:\ffmpeg`, membuka halaman unduhan PostgreSQL bila belum terpasang, membuat database dan `.env`, memasang faster-whisper, lalu build. Font subtitle (Inter Black, SIL OFL) sudah ada di `worker/fonts`, jadi tidak perlu dipasang. Skrip ini belum diuji di mesin Windows sungguhan.
 
 ## Token
 

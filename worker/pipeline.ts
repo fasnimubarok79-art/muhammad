@@ -311,6 +311,8 @@ export async function render(ctx: Ctx) {
       preset,
       keep,
       assPath,
+      // bundled Inter Black (SIL OFL), so subtitles look the same on every OS without installing fonts
+      fontsDir: path.resolve(__dirname, "fonts"),
       output: outFile,
     });
 
