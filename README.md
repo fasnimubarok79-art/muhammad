@@ -89,14 +89,18 @@ Harga ditampilkan sebelum konfirmasi; server menolak render bila total yang diko
 
 ## Universal link import
 
-| Sumber | Status | Alasan |
+| Sumber | Status | Cara |
 |---|---|---|
-| File video langsung publik (.mp4, dll.) | `PROCESSABLE` | Diunduh worker dengan proteksi SSRF dan batas ukuran |
-| YouTube, TikTok | `PREVIEW_ONLY` | Embed resmi; platform tidak memberi file media ke aplikasi pihak ketiga → upload file asli |
-| Instagram, Facebook | `AUTHORIZATION_REQUIRED` (tanpa `META_APP_TOKEN`) / `PREVIEW_ONLY` | Sama, plus butuh token Meta untuk preview |
-| Lainnya / tidak valid / privat | `UNSUPPORTED` | Disertai alasan dan opsi upload |
+| YouTube, TikTok, Instagram, Facebook (video publik) | `PROCESSABLE` setelah pengguna mencentang hak | Diunduh worker dengan yt-dlp: hanya extractor keempat platform itu, tanpa cookie/login, tanpa live, batas ukuran dan durasi |
+| File video langsung publik (.mp4, dll.) | `PROCESSABLE` | Diunduh dengan `safeRequest` (proteksi SSRF) |
+| Video privat, butuh login, live, DRM | gagal dengan pesan jelas | Tidak dibobol; pengguna diminta upload file asli |
+| Lainnya / tidak valid / alamat privat | `UNSUPPORTED` | Disertai alasan dan opsi upload |
 
-Aplikasi tidak memakai yt-dlp dan tidak melewati login, DRM, paywall, atau pembatasan platform.
+Matikan dengan `LINK_IMPORT=0`. yt-dlp perlu diperbarui berkala karena platform sering berubah: `.venv\Scripts\pip install -U "yt-dlp[default]"`. YouTube memerlukan JavaScript runtime (`YTDLP_JS_RUNTIME=node`, sudah default). Mengunggah ulang video milik orang lain bisa melanggar hak cipta; aplikasi mencatat konfirmasi hak di audit log.
+
+## Login admin
+
+Owner Admin bisa login dengan email `OWNER_EMAIL` **atau** username `OWNER_USERNAME` (default `ADMINPRO16112000`, tidak peka huruf besar/kecil). Password awal diambil dari `OWNER_INITIAL_PASSWORD` di `.env` (minimal 8 karakter) dan wajib diganti saat login pertama. Password tidak pernah disimpan di kode atau Git.
 
 ## Pengujian
 
@@ -117,6 +121,7 @@ Tes E2E mengganti password owner. Jalankan hanya pada database uji.
 
 ## Belum tersedia / belum terverifikasi
 
+- Unduh dari YouTube/TikTok/Instagram/Facebook diuji dengan yt-dlp terhadap server lokal; unduhan dari platform aslinya belum bisa diuji di lingkungan pengembangan (jaringan diblokir).
 - Publikasi langsung ke TikTok/YouTube/Instagram/Facebook: alur OAuth (PKCE + state) sudah ditulis tetapi **belum diuji** dengan aplikasi platform sungguhan; upload via API belum diimplementasikan. Publish Studio menyediakan export + panduan manual.
 - Email reset password: token dan alurnya bekerja, tetapi transport email belum diimplementasikan (`SMTP_URL`).
 - Editor: track subtitle, trim, framing, preset, waveform, undo/redo, autosave sudah berfungsi. Overlay teks/gambar/logo, sticker, transisi antar-klip, efek per-segmen, speed control, dan multi-track video belum ada.

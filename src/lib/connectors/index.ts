@@ -23,7 +23,12 @@ export type ConnectorDeps = {
   /** Injected so tests never touch the network. */
   probe: (url: URL) => Promise<{ status: number; contentType: string; length?: number; finalUrl: string }>;
   metaAppToken?: string;
+  /** When true, public social videos are fetched with yt-dlp (rights confirmation required). */
+  linkImport?: boolean;
 };
+
+const LINK_IMPORT_REASON =
+  "Public video. It will be fetched from the platform after you confirm you have the rights to use it. Private, login-only, live and DRM-protected videos cannot be imported.";
 
 const hostIs = (url: URL, ...hosts: string[]) =>
   hosts.some((h) => url.hostname === h || url.hostname.endsWith(`.${h}`));
@@ -42,7 +47,7 @@ export const youtube: Connector = {
   id: "youtube",
   label: "YouTube",
   matches: (u) => hostIs(u, "youtube.com", "youtu.be", "youtube-nocookie.com"),
-  async inspect(url) {
+  async inspect(url, deps) {
     const id = youtubeId(url);
     if (!id || !/^[\w-]{6,20}$/.test(id)) {
       return { platform: "youtube", normalizedUrl: url.toString(), accessState: "UNSUPPORTED", reason: "No video ID found in this YouTube link.", nextAction: "upload_original" };
@@ -50,9 +55,9 @@ export const youtube: Connector = {
     return {
       platform: "youtube",
       normalizedUrl: `https://www.youtube.com/watch?v=${id}`,
-      accessState: "PREVIEW_ONLY",
-      reason: NO_MEDIA_REASON,
-      nextAction: "upload_original",
+      accessState: deps.linkImport ? "PROCESSABLE" : "PREVIEW_ONLY",
+      reason: deps.linkImport ? LINK_IMPORT_REASON : NO_MEDIA_REASON,
+      nextAction: deps.linkImport ? "process" : "upload_original",
       embedUrl: `https://www.youtube-nocookie.com/embed/${id}`,
     };
   },
@@ -62,8 +67,12 @@ export const tiktok: Connector = {
   id: "tiktok",
   label: "TikTok",
   matches: (u) => hostIs(u, "tiktok.com"),
-  async inspect(url) {
+  async inspect(url, deps) {
     const m = url.pathname.match(/\/video\/(\d{8,25})/);
+    const short = /^(vm|vt)\.tiktok\.com$/.test(url.hostname);
+    if (deps.linkImport && (m || short)) {
+      return { platform: "tiktok", normalizedUrl: url.toString(), accessState: "PROCESSABLE", reason: LINK_IMPORT_REASON, nextAction: "process", embedUrl: m ? `https://www.tiktok.com/embed/v2/${m[1]}` : undefined };
+    }
     return {
       platform: "tiktok",
       normalizedUrl: url.toString(),
@@ -81,6 +90,9 @@ function metaConnector(id: "instagram" | "facebook", label: string, hosts: strin
     label,
     matches: (u) => hostIs(u, ...hosts),
     async inspect(url, deps) {
+      if (deps.linkImport) {
+        return { platform: id, normalizedUrl: url.toString(), accessState: "PROCESSABLE", reason: LINK_IMPORT_REASON, nextAction: "process" };
+      }
       if (!deps.metaAppToken) {
         return {
           platform: id,

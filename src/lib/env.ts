@@ -7,6 +7,7 @@ const schema = z.object({
   SECRET_KEY: z.string().min(32, "SECRET_KEY must be at least 32 chars"),
   OWNER_EMAIL: z.string().email().default("ADMIN16112000@gmail.com"),
   OWNER_INITIAL_PASSWORD: z.string().optional(),
+  OWNER_USERNAME: z.string().regex(/^[A-Za-z0-9_.-]{3,40}$/).default("ADMINPRO16112000"),
   WHISPER_MODEL: z.string().default("small"),
   WHISPER_PYTHON: z.string().default("python3"),
   WHISPER_LANGUAGE: z.string().optional(),
@@ -16,6 +17,10 @@ const schema = z.object({
   MAX_SOURCE_MINUTES: z.coerce.number().positive().default(120),
   JOB_TIMEOUT_MIN: z.coerce.number().positive().default(60),
   META_APP_TOKEN: z.string().optional(),
+  // Fetch public YouTube/TikTok/Instagram/Facebook videos with yt-dlp ("0" turns it off).
+  LINK_IMPORT: z.enum(["0", "1"]).default("1"),
+  YTDLP_PYTHON: z.string().optional(), // defaults to WHISPER_PYTHON
+  YTDLP_JS_RUNTIME: z.string().default("node"), // YouTube needs a JS runtime; "" disables
   SMTP_URL: z.string().optional(),
 });
 

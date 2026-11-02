@@ -42,3 +42,21 @@ describe("universal link connectors", () => {
     expect(called).toBe(false);
   });
 });
+
+describe("link import enabled (yt-dlp)", () => {
+  const on: ConnectorDeps = { probe: probe(200, "video/mp4"), linkImport: true };
+  it("public social links become PROCESSABLE and keep the official preview", async () => {
+    const yt = await inspectLink("https://youtu.be/dQw4w9WgXcQ", on);
+    expect(yt.accessState).toBe("PROCESSABLE");
+    expect(yt.nextAction).toBe("process");
+    expect(yt.embedUrl).toContain("youtube-nocookie.com");
+    expect((await inspectLink("https://www.tiktok.com/@a/video/7234567890123456789", on)).accessState).toBe("PROCESSABLE");
+    expect((await inspectLink("https://vm.tiktok.com/ZMabc123/", on)).accessState).toBe("PROCESSABLE");
+    expect((await inspectLink("https://www.instagram.com/reel/Cabc123/", on)).accessState).toBe("PROCESSABLE");
+    expect((await inspectLink("https://www.facebook.com/watch/?v=123", on)).accessState).toBe("PROCESSABLE");
+  });
+  it("still blocks private targets and links without a video id", async () => {
+    expect((await inspectLink("http://127.0.0.1/x.mp4", on)).accessState).toBe("UNSUPPORTED");
+    expect((await inspectLink("https://www.youtube.com/feed/trending", on)).accessState).toBe("UNSUPPORTED");
+  });
+});

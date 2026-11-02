@@ -5,15 +5,15 @@
  * The owner must change the password again at the next login, and all owner sessions are signed out.
  */
 import { PrismaClient } from "@prisma/client";
-import { hashPassword, PASSWORD_RULES } from "../src/lib/crypto";
+import { hashPassword, normaliseUsername, PASSWORD_RULES } from "../src/lib/crypto";
 
 const db = new PrismaClient();
 
 async function main() {
   const email = (process.env.OWNER_EMAIL ?? "ADMIN16112000@gmail.com").trim().toLowerCase();
   const password = process.env.OWNER_INITIAL_PASSWORD ?? "";
-  if (password.length < PASSWORD_RULES.min) {
-    console.error(`[owner:reset] OWNER_INITIAL_PASSWORD in .env is missing or shorter than ${PASSWORD_RULES.min} characters`);
+  if (password.length < PASSWORD_RULES.ownerInitialMin) {
+    console.error(`[owner:reset] OWNER_INITIAL_PASSWORD in .env is missing or shorter than ${PASSWORD_RULES.ownerInitialMin} characters`);
     process.exitCode = 1;
     return;
   }
@@ -29,11 +29,11 @@ async function main() {
     return;
   }
   await db.$transaction([
-    db.user.update({ where: { id: owner.id }, data: { passwordHash: await hashPassword(password), mustChangePassword: true, disabledAt: null } }),
+    db.user.update({ where: { id: owner.id }, data: { passwordHash: await hashPassword(password), mustChangePassword: true, disabledAt: null, username: normaliseUsername(process.env.OWNER_USERNAME ?? "ADMINPRO16112000") } }),
     db.session.deleteMany({ where: { userId: owner.id } }),
     db.auditLog.create({ data: { action: "owner.password_reset_cli", userId: owner.id, target: email } }),
   ]);
-  console.log(`[owner:reset] Password for ${email} is now the OWNER_INITIAL_PASSWORD value in .env.`);
+  console.log(`[owner:reset] Owner ${email} (username ${normaliseUsername(process.env.OWNER_USERNAME ?? "ADMINPRO16112000")}): password is now the OWNER_INITIAL_PASSWORD value in .env.`);
   console.log("[owner:reset] Log in with it; you will be asked to choose a new password.");
 }
 

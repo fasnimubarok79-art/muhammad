@@ -54,6 +54,7 @@ enum TokenTxType {
 model User {
   id                 String    @id @default(cuid())
   email              String    @unique
+  username           String?   @unique // stored upper-case; currently only the owner admin has one
   name               String?
   passwordHash       String
   role               Role      @default(USER)

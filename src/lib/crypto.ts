@@ -58,4 +58,7 @@ export function decryptSecret(payload: string, secret: string): string {
   return Buffer.concat([decipher.update(enc), decipher.final()]).toString("utf8");
 }
 
-export const PASSWORD_RULES = { min: 10, max: 200 } as const;
+export const PASSWORD_RULES = { min: 10, max: 200, ownerInitialMin: 8 } as const;
+
+/** Owner usernames are matched case-insensitively and stored upper-case. */
+export const normaliseUsername = (u: string) => u.trim().toUpperCase();

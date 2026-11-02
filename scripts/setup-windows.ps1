@@ -114,6 +114,7 @@ APP_URL=http://localhost:3000
 STORAGE_DIR=$rootFwd/storage
 SECRET_KEY=$(RandomHex 32)
 OWNER_EMAIL=ADMIN16112000@gmail.com
+OWNER_USERNAME=ADMINPRO16112000
 OWNER_INITIAL_PASSWORD=$ownerPass
 WHISPER_MODEL=small
 WHISPER_PYTHON=$rootFwd/.venv/Scripts/python.exe
@@ -127,7 +128,7 @@ MAX_UPLOAD_MB=500
   Ok ".env written"
   Write-Host ""
   Write-Host "    Owner admin login (write this down, you must change it at first login):" -ForegroundColor Yellow
-  Write-Host "      email:    ADMIN16112000@gmail.com" -ForegroundColor Yellow
+  Write-Host "      username: ADMINPRO16112000  (or email ADMIN16112000@gmail.com)" -ForegroundColor Yellow
   Write-Host "      password: $ownerPass" -ForegroundColor Yellow
 }
 New-Item -ItemType Directory -Force -Path (Join-Path $Root "storage") | Out-Null
@@ -142,13 +143,15 @@ if ($LASTEXITCODE -ne 0) { Fail "Owner account setup failed." }
 Ok "database ready"
 
 # 7. Whisper (speech recognition)
-Step 7 "Whisper speech recognition (a few minutes)"
+Step 7 "Whisper speech recognition and link import (a few minutes)"
 $venvPy = Join-Path $Root ".venv\Scripts\python.exe"
 if (-not (Test-Path $venvPy)) { & $PyExe -m venv (Join-Path $Root ".venv") }
 & $venvPy -m pip install --disable-pip-version-check -q -r (Join-Path $Root "worker\stt\requirements.txt")
 if ($LASTEXITCODE -ne 0) { Fail "Installing faster-whisper failed." }
 & $venvPy -c "import faster_whisper; print('faster-whisper', faster_whisper.__version__)"
 if ($LASTEXITCODE -ne 0) { Fail "faster-whisper does not import." }
+& $venvPy -m yt_dlp --version
+if ($LASTEXITCODE -ne 0) { Fail "yt-dlp (link import) is not installed." }
 Ok "Whisper installed (the 'small' model, about 480 MB, downloads on the first transcription)"
 
 # 8. Build

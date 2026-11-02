@@ -10,7 +10,7 @@ const Body = z.object({ url: z.string().min(4).max(2048) });
 export const POST = authedRoute(
   async ({ req }) => {
     const { url } = await parseJson(req, Body);
-    return json({ access: await inspectLink(url, { probe: defaultProbe, metaAppToken: env().META_APP_TOKEN }) });
+    return json({ access: await inspectLink(url, { probe: defaultProbe, metaAppToken: env().META_APP_TOKEN, linkImport: env().LINK_IMPORT === "1" }) });
   },
   { rate: RATE.import, rateKey: "inspect" },
 );

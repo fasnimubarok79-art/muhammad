@@ -10,6 +10,8 @@ import { env } from "../src/lib/env";
 import { ensureDirFor, keyPath, newKey } from "../src/lib/storage";
 import { capture, refund } from "../src/lib/tokens";
 import { safeRequest } from "../src/lib/url-safety";
+import { buildYtDlpArgs, parseYtDlpOutput, parseYtDlpProgress, SOCIAL_PLATFORMS, ytDlpFriendlyError } from "../src/lib/media/ytdlp";
+import { readdir, rename } from "node:fs/promises";
 import { run, ProcessError } from "../src/lib/media/exec";
 import { displaySize, probe } from "../src/lib/media/probe";
 import { parseScenes, parseSilences, proposeClips, type Interval } from "../src/lib/media/clipping";
@@ -82,6 +84,60 @@ async function downloadSource(ctx: Ctx, sourceId: string, url: string, ownerId: 
   return key;
 }
 
+/** Public social video via yt-dlp (platform extractors only, no cookies, no live, size and length limits). */
+async function downloadSocial(ctx: Ctx, sourceId: string, url: string, ownerId: string) {
+  const e = env();
+  const tmpKey = newKey("sources", ownerId, "mp4");
+  await ensureDirFor(tmpKey);
+  const outBase = keyPath(tmpKey).replace(/\.mp4$/, "");
+  const args = buildYtDlpArgs({
+    url,
+    outBase,
+    ffmpegPath: e.FFMPEG_PATH,
+    maxMb: e.MAX_UPLOAD_MB,
+    maxMinutes: e.MAX_SOURCE_MINUTES,
+    jsRuntime: e.YTDLP_JS_RUNTIME || undefined,
+  });
+  const onLine = (l: string) => {
+    const p = parseYtDlpProgress(l);
+    if (p !== null) void setProgress(ctx.job.id, 2 + p * 0.16);
+  };
+  let out: string;
+  try {
+    out = await run(e.YTDLP_PYTHON ?? e.WHISPER_PYTHON, args, { timeoutMs: e.JOB_TIMEOUT_MIN * 60_000, signal: ctx.signal, onStderr: onLine });
+  } catch (err) {
+    // remove partial files
+    const dir = path.dirname(outBase);
+    for (const f of await readdir(dir).catch(() => [] as string[])) if (f.startsWith(path.basename(outBase))) await rm(path.join(dir, f), { force: true });
+    if (err instanceof ProcessError) {
+      console.error("[worker] yt-dlp failed", err.stderrTail.slice(-800));
+      throw new JobFailure(ytDlpFriendlyError(err.stderrTail));
+    }
+    throw err;
+  }
+  out.split(/\r?\n/).forEach(onLine);
+  const r = parseYtDlpOutput(out, outBase);
+  const ext = path.extname(r.filepath).slice(1).toLowerCase() || "mp4";
+  let key = tmpKey;
+  if (ext !== "mp4") {
+    key = tmpKey.replace(/\.mp4$/, `.${ext}`);
+    await rename(r.filepath, keyPath(key));
+  } else if (r.filepath !== keyPath(tmpKey)) {
+    await rename(r.filepath, keyPath(tmpKey));
+  }
+  const st = await stat(keyPath(key));
+  await db.sourceVideo.update({
+    where: { id: sourceId },
+    data: {
+      storageKey: key,
+      mimeType: ext === "webm" ? "video/webm" : ext === "mkv" ? "video/x-matroska" : "video/mp4",
+      sizeBytes: BigInt(st.size),
+      originalName: (r.title ?? "").slice(0, 200) || null,
+    },
+  });
+  return key;
+}
+
 export async function analyze(ctx: Ctx) {
   const job = ctx.job;
   await setStatus(ctx, "validating", 1);
@@ -93,7 +149,9 @@ export async function analyze(ctx: Ctx) {
   if (!key) {
     if (src.kind !== "URL" || !src.sourceUrl) throw new JobFailure("No media file for this source");
     await setStatus(ctx, "downloading", 2);
-    key = await downloadSource(ctx, src.id, src.sourceUrl, src.project.userId);
+    key = SOCIAL_PLATFORMS.has(src.platform)
+      ? await downloadSocial(ctx, src.id, src.sourceUrl, src.project.userId)
+      : await downloadSource(ctx, src.id, src.sourceUrl, src.project.userId);
   }
   const file = keyPath(key);
 

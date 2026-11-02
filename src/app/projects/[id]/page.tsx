@@ -62,6 +62,12 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
                           {[s.durationSec ? fmtTime(s.durationSec, false) : null, s.width ? `${s.width}×${s.height}` : null, s.sizeBytes ? fmtBytes(s.sizeBytes) : null, s.transcript ? `transcript: ${s.transcript.language ?? "?"}` : null].filter(Boolean).join(" · ")}
                         </p>
                         {s.accessState !== "PROCESSABLE" && s.accessReason && <p className="mt-1 text-[12px] text-muted">{s.accessReason}</p>}
+                        {s.hasMedia && (
+                          <details className="mt-2">
+                            <summary className="text-[12px] font-semibold text-muted hover:text-ink">Watch the original video</summary>
+                            <video className="mt-2 max-h-[360px] w-full rounded-ctl bg-black" src={`/api/media/source/${s.id}`} controls preload="metadata" playsInline />
+                          </details>
+                        )}
                         {job && (
                           <div className="mt-2 flex flex-wrap items-center gap-2">
                             <StatusPill status={job.status} progress={job.progress} />

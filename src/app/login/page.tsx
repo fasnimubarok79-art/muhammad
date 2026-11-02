@@ -15,7 +15,7 @@ function Login() {
       <AuthForm
         submit="Log in"
         fields={[
-          { name: "email", label: "Email", type: "email", autoComplete: "email" },
+          { name: "login", label: "Email or admin username", type: "text", autoComplete: "username" },
           { name: "password", label: "Password", type: "password", autoComplete: "current-password" },
         ]}
         onSubmit={async (v) => {

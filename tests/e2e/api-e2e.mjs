@@ -79,9 +79,13 @@ ok((await link("http://169.254.169.254/latest/meta-data/"))?.accessState === "UN
 ok((await link("http://localhost:3000/api/auth/me"))?.accessState === "UNSUPPORTED", "SSRF: localhost blocked");
 ok((await link("http://[::ffff:127.0.0.1]/"))?.accessState === "UNSUPPORTED", "SSRF: IPv4-mapped IPv6 loopback blocked");
 ok((await link("file:///etc/passwd"))?.accessState === "UNSUPPORTED", "SSRF: file:// blocked");
-const yt = await link("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-ok(yt?.accessState === "PREVIEW_ONLY" && yt.embedUrl?.includes("youtube-nocookie.com"), "YouTube link is PREVIEW_ONLY with official embed");
-ok((await link("https://www.instagram.com/reel/Cabc123/"))?.accessState === "AUTHORIZATION_REQUIRED", "Instagram needs authorization");
+r = await A.req("/api/video", { method: "POST", body: { projectId, url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" } });
+ok(r.status === 400 && r.data.error.code === "RIGHTS_REQUIRED" && r.data.error.access.accessState === "PROCESSABLE", "YouTube link needs rights confirmation before import");
+r = await A.req("/api/video/inspect", { method: "POST", body: { url: "https://www.instagram.com/reel/Cabc123/" } });
+ok(r.data.access.accessState === "PROCESSABLE", "Instagram public link is processable via link import");
+r = await A.req("/api/video", { method: "POST", body: { projectId, url: "https://www.tiktok.com/@a/video/7234567890123456789", rightsConfirmed: true } });
+ok(r.status === 201 && r.data.job?.status === "queued", "confirmed TikTok link queues a download job");
+if (r.data.job) await A.req(`/api/jobs/${r.data.job.id}/cancel`, { method: "POST" });
 
 // ---- real upload -> analysis
 if (!VIDEO) throw new Error("TEST_VIDEO is required");
@@ -153,6 +157,11 @@ r = await B.req("/api/admin/users");
 ok(r.status === 403, "normal user cannot use admin API");
 
 // ---- owner admin
+const OU = new Client("OwnerByUsername");
+r = await OU.req("/api/auth/login", { method: "POST", body: { login: (process.env.OWNER_USERNAME ?? "ADMINPRO16112000").toLowerCase(), password: process.env.OWNER_INITIAL_PASSWORD } });
+ok(r.status === 200 && r.data.mustChangePassword === true, "owner can log in with the admin username (case-insensitive)");
+r = await OU.req("/api/auth/login", { method: "POST", body: { login: "ADMINPRO16112000", password: "wrong-pass-123" } });
+ok(r.status === 401, "wrong password for admin username is refused");
 const O = new Client("Owner");
 r = await O.req("/api/auth/login", { method: "POST", body: { email: process.env.OWNER_EMAIL, password: process.env.OWNER_INITIAL_PASSWORD } });
 ok(r.status === 200 && r.data.mustChangePassword === true, "owner logs in with initial password and must change it");

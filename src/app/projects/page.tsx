@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/app/AppShell";
 import { Empty, ErrorNote, Spinner } from "@/components/ui/bits";
 import { usePoll } from "@/hooks/usePoll";
@@ -16,6 +16,21 @@ export default function Projects() {
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const autoStarted = useRef(false);
+
+  // Coming from the landing page with a link: create a project and open it with the link filled in.
+  useEffect(() => {
+    if (autoStarted.current) return;
+    let pending: string | null = null;
+    try {
+      pending = sessionStorage.getItem("clipkita:pending-link");
+    } catch {}
+    if (!pending) return;
+    autoStarted.current = true;
+    api<{ project: { id: string } }>("/api/projects", { body: { title: `Import ${new Date().toLocaleDateString("id-ID")}` } })
+      .then((r) => router.push(`/projects/${r.project.id}`))
+      .catch(() => setErr("Could not create a project for your link. Create one below."));
+  }, [router]);
   return (
     <AppShell>
       <h1 className="text-[28px] font-extrabold">Projects</h1>
