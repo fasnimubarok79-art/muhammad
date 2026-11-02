@@ -1,0 +1,51 @@
+@import "@fontsource-variable/inter/index.css";
+@import "@fontsource-variable/archivo/wdth.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body { @apply bg-bg text-ink font-sans antialiased; font-size: 14px; }
+  h1, h2, h3 { @apply font-display; font-stretch: 112%; letter-spacing: -0.01em; }
+  a[href], button:not(:disabled), summary, select, label[for], [role="button"], input[type="checkbox"], input[type="range"] { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+  :focus-visible { outline: 2px solid #3DDC97; outline-offset: 2px; }
+  ::selection { background: #FF7A1A; color: #0B0F19; }
+}
+
+@layer components {
+  .btn { @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-ctl text-[14px] font-semibold transition-transform duration-[120ms] ease-out active:scale-[.97] disabled:opacity-50 disabled:active:scale-100; }
+  .btn-primary { @apply btn bg-edit text-bg hover:brightness-110; }
+  .btn-secondary { @apply btn bg-surface2 text-ink border border-line hover:border-muted; }
+  .btn-ghost { @apply btn bg-transparent text-muted hover:text-ink h-9 px-3; }
+  .field { @apply w-full h-10 px-3 rounded-ctl bg-surface2 border border-line text-ink placeholder:text-faint focus:border-system outline-none; }
+  .label { @apply block text-[13px] font-medium text-muted mb-1.5; }
+  .card { @apply bg-surface border border-line rounded-card; }
+  .tc { font-variant-numeric: tabular-nums; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+
+/* Live subtitle preview: mirrors the burned-in ASS style (Inter Black, black stroke, orange active word). */
+.sub-preview { container-type: inline-size; }
+.sub-line {
+  font-family: "Inter Variable", system-ui, sans-serif;
+  font-weight: 900;
+  color: #fff;
+  -webkit-text-stroke: 0.08em #000;
+  paint-order: stroke fill;
+  text-shadow: 0 0.05em 0.08em rgb(0 0 0 / .6);
+  line-height: 1.12;
+  text-align: center;
+}
+.sub-word-active { color: var(--hl, #FF7A1A); text-shadow: 0 0 0.35em color-mix(in srgb, var(--hl, #FF7A1A) 55%, transparent), 0 0.05em 0.08em rgb(0 0 0 / .6); }
+.sub-pop { display: inline-block; animation: subpop 90ms cubic-bezier(0.23, 1, 0.32, 1); }
+@keyframes subpop { from { transform: scale(1.18); } to { transform: scale(1); } }

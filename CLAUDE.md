@@ -29,3 +29,10 @@ Precedence on conflicts: `DESIGN.md` > `antislop` hard-gate rules > Emil skills.
 
 ## Maintenance
 - Skills are pinned in `skills-lock.json`. Update with `npx skills update -p`, then review the diff.
+
+## Project: CLIPKITA
+- Read `README.md` for architecture, env vars and what is not implemented yet.
+- Never invent transcripts, clips, scores or render results. If Whisper/FFmpeg fail, the job fails.
+- Every DB query on user data must filter by owner (`src/lib/access.ts`). Every write route uses `authedRoute` (CSRF + Origin).
+- Outbound HTTP to user-supplied URLs only through `safeRequest` in `src/lib/url-safety.ts`.
+- Verify: `npm run typecheck && npm run lint && npm test && npx next build`.
