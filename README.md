@@ -43,7 +43,7 @@ npm run build && npm start      # web di :3000
 npm run worker                  # di terminal lain
 ```
 
-Owner Admin login dengan `OWNER_EMAIL` + `OWNER_INITIAL_PASSWORD`, lalu **wajib** mengganti password sebelum bisa memakai aplikasi. Seed tidak pernah mereset password owner yang sudah ada dan tidak pernah mempromosikan akun lain.
+Owner Admin login dengan `OWNER_EMAIL` + `OWNER_INITIAL_PASSWORD`, lalu **wajib** mengganti password sebelum bisa memakai aplikasi. Lupa password owner? Jalankan `npm run owner:reset` di server: password kembali ke `OWNER_INITIAL_PASSWORD` dari `.env` dan wajib diganti lagi saat login. Seed tidak pernah mereset password owner yang sudah ada dan tidak pernah mempromosikan akun lain.
 
 ### Windows
 

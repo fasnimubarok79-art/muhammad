@@ -12,6 +12,7 @@
     "test": "vitest run",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx --env-file=.env prisma/seed.ts",
+    "owner:reset": "tsx --env-file=.env prisma/reset-owner.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
