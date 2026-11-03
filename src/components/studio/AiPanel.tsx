@@ -3,7 +3,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { api, ClientApiError } from "@/lib/client";
 import { useToast } from "../ui/use-toast";
-import { PRESET_INFO } from "./Panels";
+import { PRESET_INFO, styleFor } from "./Panels";
 import type { Config, Doc, Seg } from "./useEditor";
 
 type Reason = { factor: string; score: number; note: string };
@@ -90,7 +90,7 @@ export function AiPanel({ doc, clipId, sourceId, score, reasons, hashtags, silen
     aspect: "9:16",
     resolution: "1080p",
     framing: landscape ? "follow" : "crop",
-    preset: len > 45 ? "educational" : "viral_short",
+    preset: len > 45 ? "educational" : "viral_spotlight",
     removeSilence: removable > 1,
   };
 
@@ -158,7 +158,7 @@ export function AiPanel({ doc, clipId, sourceId, score, reasons, hashtags, silen
 
       <Tool title="Smart Export">
         <p className="mb-2">Suggested: {smart.aspect}, {smart.resolution}, {smart.framing === "follow" ? "follow face" : "crop"}, {PRESET_INFO[smart.preset!].label}{smart.removeSilence ? ", silence removal on" : ""}.</p>
-        <button className="btn-secondary h-7 px-2 text-[12px]" onClick={() => { onConfig({ ...smart, style: { ...doc.config.style, preset: PRESET_INFO[smart.preset!].subtitle } }); toast({ tone: "success", title: "Export settings applied" }); }}>Apply suggestion</button>
+        <button className="btn-secondary h-7 px-2 text-[12px]" onClick={() => { onConfig({ ...smart, style: styleFor(PRESET_INFO[smart.preset!].subtitle, doc.config.style) }); toast({ tone: "success", title: "Export settings applied" }); }}>Apply suggestion</button>
       </Tool>
 
       <Tool title="Auto Clip">

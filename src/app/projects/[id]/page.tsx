@@ -94,6 +94,21 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
                             Re-run AI analysis
                           </button>
                         )}
+                        {s.hasMedia && s.durationSec && !running && (
+                          <button
+                            className="btn-ghost ml-3 mt-1 h-8 px-0 text-[12px]"
+                            onClick={async () => {
+                              try {
+                                const r = await api<{ clip: { id: string } }>(`/api/sources/${s.id}/full-clip`, { method: "POST" });
+                                window.location.href = `/studio/${r.clip.id}`;
+                              } catch (e) {
+                                toast({ tone: "error", title: "Tidak bisa membuat klip", body: e instanceof ClientApiError ? e.body.message : undefined });
+                              }
+                            }}
+                          >
+                            Buat klip dari seluruh video
+                          </button>
+                        )}
                       </li>
                     );
                   })}

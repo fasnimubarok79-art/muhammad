@@ -10,6 +10,7 @@ const Query = z.object({
   status: z.enum(["candidate", "accepted", "rejected"]).optional(),
   favorite: z.enum(["1"]).optional(),
   length: z.coerce.number().int().min(1).max(600).optional(),
+  minScore: z.coerce.number().min(0).max(100).optional(),
   sort: z.enum(["score", "hook", "engagement", "newest", "start", "duration"]).default("score"),
   page: z.coerce.number().int().min(1).max(10_000).default(1),
   pageSize: z.coerce.number().int().min(1).max(48).default(12),
@@ -23,6 +24,7 @@ export const GET = authedRoute(async ({ req, user }) => {
     ...(q.status ? { status: q.status } : {}),
     ...(q.favorite ? { favorite: true } : {}),
     ...(q.length ? { targetDuration: q.length } : {}),
+    ...(q.minScore !== undefined ? { score: { gte: q.minScore } } : {}),
     ...(q.q ? { OR: [{ title: { contains: q.q, mode: "insensitive" } }, { description: { contains: q.q, mode: "insensitive" } }] } : {}),
   };
   const orderBy: Prisma.ClipOrderByWithRelationInput[] =
@@ -34,15 +36,20 @@ export const GET = authedRoute(async ({ req, user }) => {
       orderBy,
       skip: (q.page - 1) * q.pageSize,
       take: q.pageSize,
-      include: { _count: { select: { segments: true } }, jobs: { where: { kind: "RENDER" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, status: true, progress: true, outputKey: true } } },
+      include: {
+        project: { select: { title: true } },
+        segments: { orderBy: { idx: "asc" }, select: { startSec: true, endSec: true, text: true, wordsJson: true } },
+        _count: { select: { segments: true } },
+        jobs: { where: { kind: "RENDER" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, status: true, progress: true, outputKey: true } } },
     }),
   ]);
   return json({
     total,
     page: q.page,
     pageSize: q.pageSize,
-    clips: clips.map(({ thumbnailKey, jobs, ...c }) => ({
+    clips: clips.map(({ thumbnailKey, jobs, segments, faceTrack: _ft, scoreReasons: _sr, ...c }) => ({
       ...c,
+      segments: segments.map((g) => ({ start: g.startSec, end: g.endSec, text: g.text, words: g.wordsJson })),
       duration: c.endSec - c.startSec,
       hasThumbnail: Boolean(thumbnailKey),
       latestRender: jobs[0] ? { id: jobs[0].id, status: jobs[0].status, progress: jobs[0].progress, hasOutput: Boolean(jobs[0].outputKey) } : null,

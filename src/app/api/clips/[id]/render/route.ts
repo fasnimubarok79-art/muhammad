@@ -24,7 +24,7 @@ const Params = z.object({
   trimEnd: z.number().positive().optional(),
   style: z
     .object({
-      preset: z.enum(["karaoke", "clean", "pop"]),
+      preset: z.enum(["karaoke", "clean", "pop", "impact"]),
       fontSize: z.number().int().min(40).max(160),
       primary: z.string().regex(/^#[0-9a-fA-F]{6}$/),
       highlight: z.string().regex(/^#[0-9a-fA-F]{6}$/),

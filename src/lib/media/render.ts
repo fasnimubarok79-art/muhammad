@@ -3,18 +3,21 @@ import type { Word } from "./subtitles";
 
 export type Aspect = "9:16" | "16:9" | "1:1";
 export type Framing = "blur" | "crop" | "pad" | "follow";
-export type PresetId = "cinematic_podcast" | "viral_short" | "educational" | "storytelling" | "clean_professional";
+export type PresetId = "cinematic_podcast" | "viral_short" | "viral_spotlight" | "educational" | "storytelling" | "clean_professional";
 export type Resolution = "450p" | "720p" | "1080p";
 
 export type Preset = {
   id: PresetId;
   label: string;
-  subtitle: "karaoke" | "pop" | "clean";
+  subtitle: "karaoke" | "pop" | "clean" | "impact";
   zoom: number; // total zoom gained over the clip, 0 = none
   eq: { contrast: number; saturation: number; brightness: number; gamma: number };
   warm: number; // 0..0.1 colour balance toward warm highlights
   sharpen: number; // unsharp luma amount, 0 = off
   fade: number; // seconds
+  vignette?: boolean; // darken the edges of the final frame
+  bgGrid?: boolean; // fit+blur: faint grid on the blurred background
+  frameGlow?: boolean; // fit+blur: soft orange glow and thin outline around the video frame
 };
 
 export const PRESETS: Record<PresetId, Preset> = {
@@ -22,6 +25,7 @@ export const PRESETS: Record<PresetId, Preset> = {
   viral_short: { id: "viral_short", label: "Viral Short", subtitle: "karaoke", zoom: 0.1, eq: { contrast: 1.1, saturation: 1.15, brightness: 0.01, gamma: 1 }, warm: 0.02, sharpen: 0.45, fade: 0.2 },
   educational: { id: "educational", label: "Educational", subtitle: "clean", zoom: 0, eq: { contrast: 1.02, saturation: 1.0, brightness: 0.01, gamma: 1 }, warm: 0, sharpen: 0.3, fade: 0.25 },
   storytelling: { id: "storytelling", label: "Storytelling", subtitle: "karaoke", zoom: 0.06, eq: { contrast: 1.05, saturation: 0.95, brightness: -0.01, gamma: 0.97 }, warm: 0.05, sharpen: 0.3, fade: 0.5 },
+  viral_spotlight: { id: "viral_spotlight", label: "Viral Spotlight", subtitle: "impact", zoom: 0.12, eq: { contrast: 1.12, saturation: 1.12, brightness: 0, gamma: 0.98 }, warm: 0.04, sharpen: 0.4, fade: 0.2, vignette: true, bgGrid: true, frameGlow: true },
   clean_professional: { id: "clean_professional", label: "Clean Professional", subtitle: "clean", zoom: 0, eq: { contrast: 1.0, saturation: 1.0, brightness: 0, gamma: 1 }, warm: 0, sharpen: 0, fade: 0.2 },
 };
 
@@ -130,9 +134,24 @@ export function buildRenderArgs(p: RenderPlan): string[] {
     chains.push(`[vc]${contain},pad=${OW}:${OH}:(ow-iw)/2:(oh-ih)/2:color=black[vf]`);
   } else {
     chains.push(`[vc]split=2[bgsrc][fgsrc]`);
-    chains.push(`[bgsrc]${cover},crop=${OW}:${OH},boxblur=luma_radius=24:luma_power=2,eq=brightness=-0.08:saturation=0.9[bg]`);
-    chains.push(`[fgsrc]${contain}[fg]`);
-    chains.push(`[bg][fg]overlay=x=(W-w)/2:y=(H-h)/2[vf]`);
+    const grid = p.preset.bgGrid ? `,drawgrid=w=${Math.round(OW / 9)}:h=${Math.round(OW / 9)}:t=1:c=white@0.09` : "";
+    const bgVignette = p.preset.bgGrid ? ",vignette=angle=PI/3.2" : "";
+    chains.push(`[bgsrc]${cover},crop=${OW}:${OH},boxblur=luma_radius=24:luma_power=2,eq=brightness=-0.12:saturation=0.85${grid}${bgVignette}[bg]`);
+    if (p.preset.frameGlow) {
+      // glow: an orange box the size of the video on a black full frame, blurred, then blended with
+      // "screen" (black leaves the background untouched), and the video placed on top with a thin outline
+      const g = Math.round(OW * 0.03);
+      const line = Math.max(2, Math.round(OW / 360));
+      chains.push(`[fgsrc]${contain},split=2[fgv][fgm]`);
+      chains.push(`[fgm]drawbox=x=0:y=0:w=iw:h=ih:color=0xFF7A1A:t=fill,pad=${OW}:${OH}:(ow-iw)/2:(oh-ih)/2:color=black,gblur=sigma=${g},format=gbrp[glow]`);
+      chains.push(`[fgv]drawbox=x=0:y=0:w=iw:h=ih:color=0xFF7A1A@0.9:t=${line}[fg]`);
+      chains.push(`[bg]format=gbrp[bgp]`);
+      chains.push(`[bgp][glow]blend=all_mode=screen:all_opacity=0.7,format=yuv420p[bgg]`);
+      chains.push(`[bgg][fg]overlay=x=(W-w)/2:y=(H-h)/2[vf]`);
+    } else {
+      chains.push(`[fgsrc]${contain}[fg]`);
+      chains.push(`[bg][fg]overlay=x=(W-w)/2:y=(H-h)/2[vf]`);
+    }
   }
 
   // 3. look: slow zoom, grade, sharpen, fades, subtitles, pixel format
@@ -145,6 +164,7 @@ export function buildRenderArgs(p: RenderPlan): string[] {
   look.push(`eq=contrast=${f(e.contrast)}:saturation=${f(e.saturation)}:brightness=${f(e.brightness)}:gamma=${f(e.gamma)}`);
   if (p.preset.warm > 0) look.push(`colorbalance=rh=${f(p.preset.warm)}:bh=${f(-p.preset.warm)}`);
   if (p.preset.sharpen > 0) look.push(`unsharp=5:5:${f(p.preset.sharpen)}:5:5:0`);
+  if (p.preset.vignette && p.framing !== "blur") look.push("vignette=angle=PI/4.5");
   const fade = Math.min(p.preset.fade, dur / 4);
   if (fade > 0) look.push(`fade=t=in:st=0:d=${f(fade)}`, `fade=t=out:st=${f(Math.max(0, dur - fade))}:d=${f(fade)}`);
   if (p.assPath) look.push(`ass=filename='${filterPath(p.assPath)}'${p.fontsDir ? `:fontsdir='${filterPath(p.fontsDir)}'` : ""}`);

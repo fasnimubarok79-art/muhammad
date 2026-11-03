@@ -140,7 +140,7 @@ export const Player = forwardRef<PlayerHandle, Props>(function Player({ sourceId
                 {sub.seg.words.map((w, i) => (
                   <span key={i}>
                     {i > 0 ? " " : ""}
-                    <span className={config.style.preset !== "clean" && i === sub.idx ? `sub-word-active ${config.style.preset === "pop" ? "sub-pop" : ""}` : ""}>{w.w}</span>
+                    <span className={config.style.preset !== "clean" && i === sub.idx ? `sub-word-active ${config.style.preset === "pop" || config.style.preset === "impact" ? "sub-pop" : ""}` : ""}>{w.w}</span>
                   </span>
                 ))}
               </p>

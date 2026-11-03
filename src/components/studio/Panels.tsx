@@ -3,11 +3,19 @@
 import { useRef, type ReactNode } from "react";
 import { api, ClientApiError, fmtTime } from "@/lib/client";
 import { useToast } from "../ui/use-toast";
-import { retext, retime, type Config, type Doc, type Seg, type Style } from "./useEditor";
+import { retext, retime, DEFAULT_STYLE, type Config, type Doc, type Seg, type Style } from "./useEditor";
+
+/** Style values a subtitle animation brings with it (Impact is big, centred and yellow). */
+export function styleFor(preset: Style["preset"], current: Style): Style {
+  if (preset === "impact") return { ...current, preset, fontSize: 108, highlight: "#FFD21F", outline: 10, shadow: 5, marginV: 840 };
+  if (current.preset === "impact") return { ...current, preset, fontSize: DEFAULT_STYLE.fontSize, highlight: DEFAULT_STYLE.highlight, outline: DEFAULT_STYLE.outline, shadow: DEFAULT_STYLE.shadow, marginV: DEFAULT_STYLE.marginV };
+  return { ...current, preset };
+}
 
 export const PRESET_INFO: Record<Config["preset"], { label: string; note: string; subtitle: Style["preset"] }> = {
   cinematic_podcast: { label: "Cinematic Podcast", note: "Natural grade, subtle push-in, clean captions", subtitle: "clean" },
   viral_short: { label: "Viral Short", note: "Karaoke captions, punchier grade, slow zoom", subtitle: "karaoke" },
+  viral_spotlight: { label: "Viral Spotlight", note: "Huge centred yellow captions, zoom-in, grid + vignette background, orange glow around the frame (with Fit+blur)", subtitle: "impact" },
   educational: { label: "Educational", note: "Clear captions, no zoom, minimal effects", subtitle: "clean" },
   storytelling: { label: "Storytelling", note: "Warm grade, longer fades, karaoke captions", subtitle: "karaoke" },
   clean_professional: { label: "Clean Professional", note: "No grade, no zoom, precise captions", subtitle: "clean" },
@@ -86,7 +94,7 @@ export function Inspector({ doc, clipLen, onConfig, onDoc, face, onDetectFaces }
       </Group>
 
       <Group title="Look (preset)">
-        <select aria-label="Editing preset" className="field h-9" value={c.preset} onChange={(e) => { const p = e.target.value as Config["preset"]; onConfig({ preset: p, style: { ...c.style, preset: PRESET_INFO[p].subtitle } }); }}>
+        <select aria-label="Editing preset" className="field h-9" value={c.preset} onChange={(e) => { const p = e.target.value as Config["preset"]; onConfig({ preset: p, style: styleFor(PRESET_INFO[p].subtitle, c.style), ...(p === "viral_spotlight" && c.framing === "pad" ? { framing: "blur" as const } : {}) }); }}>
           {Object.entries(PRESET_INFO).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
         <p className="text-[12px] text-muted">{PRESET_INFO[c.preset].note}</p>
@@ -94,7 +102,7 @@ export function Inspector({ doc, clipLen, onConfig, onDoc, face, onDetectFaces }
 
       <Group title="Subtitles">
         <label className="flex items-center gap-2"><input type="checkbox" className="accent-[#3DDC97]" checked={c.burnSubtitles} onChange={(e) => onConfig({ burnSubtitles: e.target.checked })} /> Burn subtitles into the video</label>
-        <Row label="Animation"><Seg3 label="Subtitle animation" value={c.style.preset} onChange={(v) => st({ preset: v }, false)} options={[{ v: "karaoke", l: "Karaoke" }, { v: "pop", l: "Pop" }, { v: "clean", l: "Clean" }]} /></Row>
+        <Row label="Animation"><Seg3 label="Subtitle animation" value={c.style.preset} onChange={(v) => onConfig({ style: styleFor(v, c.style) })} options={[{ v: "karaoke", l: "Karaoke" }, { v: "pop", l: "Pop" }, { v: "impact", l: "Impact" }, { v: "clean", l: "Clean" }]} /></Row>
         <Row label="Size" htmlFor="i-fs"><input id="i-fs" type="range" min={48} max={140} value={c.style.fontSize} onChange={(e) => st({ fontSize: Number(e.target.value) })} className="w-full accent-[#FF7A1A]" /></Row>
         <Row label="Position" htmlFor="i-mv"><input id="i-mv" type="range" min={300} max={1500} step={10} value={c.style.marginV} onChange={(e) => st({ marginV: Number(e.target.value) })} className="w-full accent-[#FF7A1A]" aria-describedby="i-mv-h" /></Row>
         <p id="i-mv-h" className="-mt-1 text-[11px] text-faint">Distance from the bottom. Keep it above the bottom 21% safe zone.</p>

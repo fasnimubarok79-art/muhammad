@@ -109,7 +109,7 @@ export function parseCaptions(text: string): Segment[] {
 // ---------- ASS (burned-in) ----------
 
 export type SubtitleStyle = {
-  preset: "karaoke" | "clean" | "pop";
+  preset: "karaoke" | "clean" | "pop" | "impact";
   fontName: string;
   fontSize: number; // at PlayResY
   primary: string; // #RRGGBB
@@ -119,6 +119,9 @@ export type SubtitleStyle = {
   marginV: number; // distance from bottom at PlayResY
   maxCharsPerLine: number;
 };
+
+/** "Impact": huge centred captions, yellow active word, heavy stroke, sharp shadow (short-form style). */
+export const IMPACT_STYLE: Partial<SubtitleStyle> = { preset: "impact", fontSize: 108, highlight: "#FFD21F", outline: 10, shadow: 5, marginV: 840, maxCharsPerLine: 14 };
 
 export const DEFAULT_STYLE: SubtitleStyle = {
   preset: "karaoke",
@@ -183,7 +186,7 @@ export function toAss(segs: Segment[], style: SubtitleStyle, play = { w: 1080, h
           const sep = i === 0 ? "" : lineOf[i] !== lineOf[i - 1] ? "\\N" : " ";
           const t = assText(w.w);
           if (i !== active || style.preset === "clean") return sep + t;
-          const pop = style.preset === "pop" ? "\\fscx118\\fscy118\\t(0,90,\\fscx100\\fscy100)" : "";
+          const pop = style.preset === "pop" || style.preset === "impact" ? "\\fscx118\\fscy118\\t(0,90,\\fscx100\\fscy100)" : "";
           return `${sep}{\\c${hl}${pop}\\blur0.6}${t}{\\r}`;
         })
         .join("");

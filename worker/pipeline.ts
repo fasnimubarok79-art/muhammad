@@ -15,7 +15,7 @@ import { readdir, rename } from "node:fs/promises";
 import { run, ProcessError } from "../src/lib/media/exec";
 import { displaySize, probe } from "../src/lib/media/probe";
 import { parseScenes, parseSilences, proposeClips, type Interval } from "../src/lib/media/clipping";
-import { buildSegments, DEFAULT_STYLE, sliceWords, toAss, type Segment, type SubtitleStyle, type Word } from "../src/lib/media/subtitles";
+import { buildSegments, DEFAULT_STYLE, IMPACT_STYLE, sliceWords, toAss, type Segment, type SubtitleStyle, type Word } from "../src/lib/media/subtitles";
 import { buildRenderArgs, keepIntervals, mapTime, outputSize, PRESETS, remapWords, verifyOutput, type Aspect, type Framing, type PresetId, type Resolution } from "../src/lib/media/render";
 import { detectFaceTrack, shiftTrack, trackCovers, type CachedTrack } from "../src/lib/media/faces";
 import { focusExpr as faceFocusExpr, type Keyframe } from "../src/lib/media/reframe";
@@ -354,7 +354,7 @@ export async function render(ctx: Ctx) {
       const size = outputSize(params.aspect, params.resolution);
       const play = { w: Math.round((size.w / size.h) * 1920), h: 1920 };
       const vertical = params.aspect === "9:16";
-      const base: SubtitleStyle = { ...DEFAULT_STYLE, preset: preset.subtitle, ...params.style };
+      const base: SubtitleStyle = { ...DEFAULT_STYLE, ...(preset.subtitle === "impact" ? IMPACT_STYLE : {}), preset: preset.subtitle, ...params.style };
       const style = vertical ? base : { ...base, fontSize: Math.round(base.fontSize * 0.8), marginV: 230, maxCharsPerLine: 32 };
       assPath = path.join(work, "subs.ass");
       await writeFile(assPath, toAss(remapped, style, play), "utf8");

@@ -29,6 +29,7 @@ export function ImportPanel({ projectId, onChange }: { projectId: string; onChan
   const [busy, setBusy] = useState(false);
   const [access, setAccess] = useState<Access | null>(null);
   const [rights, setRights] = useState(false);
+  const [autoCheck, setAutoCheck] = useState(false);
   const guess = guessPlatform(url);
   const [upload, setUpload] = useState<{ name: string; size: number; pct: number } | null>(null);
   const [uploadErr, setUploadErr] = useState<string | null>(null);
@@ -41,6 +42,7 @@ export function ImportPanel({ projectId, onChange }: { projectId: string; onChan
       if (pending) {
         setUrl(pending);
         sessionStorage.removeItem("clipkita:pending-link");
+        setAutoCheck(true);
       }
     } catch {}
   }, []);
@@ -62,6 +64,15 @@ export function ImportPanel({ projectId, onChange }: { projectId: string; onChan
       setBusy(false);
     }
   }
+
+  // arriving from Generate: check the link straight away so the preview and rights step show up
+  useEffect(() => {
+    if (autoCheck && url) {
+      setAutoCheck(false);
+      void checkLink();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoCheck, url]);
 
   /** Step 2: create the source and queue download + AI analysis. */
   async function importLink(confirmed: boolean) {

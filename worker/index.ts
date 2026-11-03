@@ -71,7 +71,16 @@ async function tick() {
 async function main() {
   env(); // fail fast on bad configuration
   console.log(`[worker] ${WORKER_ID} concurrency=${CONCURRENCY}`);
-  await recoverStale();
+  // wait for the database instead of crashing (it may start after the worker)
+  for (let attempt = 1; !stopping; attempt++) {
+    try {
+      await recoverStale();
+      break;
+    } catch (e) {
+      if (attempt === 1 || attempt % 10 === 0) console.error("[worker] database not reachable yet, retrying:", e instanceof Error ? e.message.split("\n")[0] : e);
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+  }
   let n = 0;
   while (!stopping) {
     try {
