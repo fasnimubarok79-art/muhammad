@@ -152,6 +152,8 @@ if ($LASTEXITCODE -ne 0) { Fail "Installing faster-whisper failed." }
 if ($LASTEXITCODE -ne 0) { Fail "faster-whisper does not import." }
 & $venvPy -m yt_dlp --version
 if ($LASTEXITCODE -ne 0) { Fail "yt-dlp (link import) is not installed." }
+& $venvPy -c "import cv2; print('opencv', cv2.__version__)"
+if ($LASTEXITCODE -ne 0) { Fail "OpenCV (face tracking) is not installed." }
 Ok "Whisper installed (the 'small' model, about 480 MB, downloads on the first transcription)"
 
 # 8. Build

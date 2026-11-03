@@ -19,6 +19,7 @@ type Props = {
   onDoc: (d: Partial<Doc>) => void;
   onConfig: (c: Partial<Config>) => void;
   onCaptionsRegenerated: () => void;
+  onFollowFace: () => void;
 };
 
 const FACTOR: Record<string, string> = {
@@ -70,7 +71,7 @@ const sentencesOf = (segs: Seg[]) =>
     .map((s) => s.trim())
     .filter((s) => s.length > 8);
 
-export function AiPanel({ doc, clipId, sourceId, score, reasons, hashtags, silences, srcSize, onDoc, onConfig, onCaptionsRegenerated }: Props) {
+export function AiPanel({ doc, clipId, sourceId, score, reasons, hashtags, silences, srcSize, onDoc, onConfig, onCaptionsRegenerated, onFollowFace }: Props) {
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
   const sents = useMemo(() => sentencesOf(doc.segments), [doc.segments]);
@@ -88,7 +89,7 @@ export function AiPanel({ doc, clipId, sourceId, score, reasons, hashtags, silen
   const smart: Partial<Config> = {
     aspect: "9:16",
     resolution: "1080p",
-    framing: landscape ? "blur" : "crop",
+    framing: landscape ? "follow" : "crop",
     preset: len > 45 ? "educational" : "viral_short",
     removeSilence: removable > 1,
   };
@@ -146,16 +147,17 @@ export function AiPanel({ doc, clipId, sourceId, score, reasons, hashtags, silen
         <label className="flex items-center gap-2 text-ink"><input type="checkbox" className="accent-[#3DDC97]" checked={doc.config.removeSilence} onChange={(e) => onConfig({ removeSilence: e.target.checked })} /> Cut them in the render</label>
       </Tool>
 
-      <Tool title="Smart Reframe">
-        <p className="mb-2">Source is {srcSize ? `${srcSize.w}×${srcSize.h} (${landscape ? "landscape" : "portrait"})` : "unknown"}. {landscape ? "Fit+blur keeps everyone in frame; Crop fills the screen, so set the crop focus on the speaker." : "Crop fills a vertical frame without bars."}</p>
-        <div className="flex gap-1">
+      <Tool title="Smart Reframe" tag="face tracking">
+        <p className="mb-2">Source is {srcSize ? `${srcSize.w}×${srcSize.h} (${landscape ? "landscape" : "portrait"})` : "unknown"}. Follow face detects faces with OpenCV and moves the crop smoothly with the main speaker. Fit+blur keeps everyone in frame.</p>
+        <div className="flex flex-wrap gap-1">
+          <button className="btn-primary h-7 px-2 text-[12px]" onClick={onFollowFace}>Follow the speaker&apos;s face</button>
           <button className="btn-secondary h-7 px-2 text-[12px]" onClick={() => onConfig({ framing: "blur" })}>Fit+blur</button>
-          <button className="btn-secondary h-7 px-2 text-[12px]" onClick={() => onConfig({ framing: "crop" })}>Crop to speaker</button>
+          <button className="btn-secondary h-7 px-2 text-[12px]" onClick={() => onConfig({ framing: "crop" })}>Fixed crop</button>
         </div>
       </Tool>
 
       <Tool title="Smart Export">
-        <p className="mb-2">Suggested: {smart.aspect}, {smart.resolution}, {smart.framing === "blur" ? "fit+blur" : "crop"}, {PRESET_INFO[smart.preset!].label}{smart.removeSilence ? ", silence removal on" : ""}.</p>
+        <p className="mb-2">Suggested: {smart.aspect}, {smart.resolution}, {smart.framing === "follow" ? "follow face" : "crop"}, {PRESET_INFO[smart.preset!].label}{smart.removeSilence ? ", silence removal on" : ""}.</p>
         <button className="btn-secondary h-7 px-2 text-[12px]" onClick={() => { onConfig({ ...smart, style: { ...doc.config.style, preset: PRESET_INFO[smart.preset!].subtitle } }); toast({ tone: "success", title: "Export settings applied" }); }}>Apply suggestion</button>
       </Tool>
 

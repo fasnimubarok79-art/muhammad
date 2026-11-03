@@ -16,7 +16,9 @@ import { run, ProcessError } from "../src/lib/media/exec";
 import { displaySize, probe } from "../src/lib/media/probe";
 import { parseScenes, parseSilences, proposeClips, type Interval } from "../src/lib/media/clipping";
 import { buildSegments, DEFAULT_STYLE, sliceWords, toAss, type Segment, type SubtitleStyle, type Word } from "../src/lib/media/subtitles";
-import { buildRenderArgs, keepIntervals, outputSize, PRESETS, remapWords, verifyOutput, type Aspect, type Framing, type PresetId, type Resolution } from "../src/lib/media/render";
+import { buildRenderArgs, keepIntervals, mapTime, outputSize, PRESETS, remapWords, verifyOutput, type Aspect, type Framing, type PresetId, type Resolution } from "../src/lib/media/render";
+import { detectFaceTrack, shiftTrack, trackCovers, type CachedTrack } from "../src/lib/media/faces";
+import { focusExpr as faceFocusExpr, type Keyframe } from "../src/lib/media/reframe";
 
 export class JobCancelled extends Error {}
 
@@ -358,6 +360,34 @@ export async function render(ctx: Ctx) {
       await writeFile(assPath, toAss(remapped, style, play), "utf8");
     }
 
+    // follow-face reframing: reuse the cached track for this exact window or detect now
+    let followExpr: string | undefined;
+    let reframe: Record<string, unknown> | undefined;
+    if (params.framing === "follow") {
+      try {
+        let track: CachedTrack;
+        if (trackCovers(clip.faceTrack, absStart, absEnd)) track = shiftTrack(clip.faceTrack as unknown as CachedTrack, absStart, absEnd);
+        else {
+          // detect over the whole clip so the editor preview and later trims can reuse it
+          const full = await detectFaceTrack(keyPath(src.storageKey), clip.startSec, clip.endSec, { signal: ctx.signal, onProgress: (p) => void setProgress(job.id, 5 + p * 0.04) });
+          await db.clip.update({ where: { id: clip.id }, data: { faceTrack: full as unknown as Prisma.InputJsonValue } });
+          track = shiftTrack(full, absStart, absEnd);
+        }
+        // move keyframes onto the edited timeline (after silence removal)
+        const mapped: Keyframe[] = [];
+        for (const k of track.keyframes) {
+          const t = mapTime(k.t, keep) ?? 0;
+          if (!mapped.length || t > mapped[mapped.length - 1].t + 0.01) mapped.push({ t, x: k.x });
+        }
+        followExpr = faceFocusExpr(mapped);
+        reframe = { mode: "follow", detector: track.detector, sampled: track.sampled, withFace: track.withFace, keyframes: mapped.length, ...(track.withFace ? {} : { note: "No face found; the crop stays centred." }) };
+      } catch (e) {
+        if (e instanceof JobCancelled || ctx.signal.aborted) throw e;
+        console.error("[worker] face detection failed", e instanceof ProcessError ? e.stderrTail.slice(-400) : e);
+        reframe = { mode: "follow", note: "Face detection was unavailable (is opencv-python-headless installed?); the crop stays centred." };
+      }
+    }
+
     const outKey = newKey("renders", job.userId, "mp4");
     await ensureDirFor(outKey);
     const outFile = keyPath(outKey);
@@ -371,6 +401,7 @@ export async function render(ctx: Ctx) {
       resolution: params.resolution,
       framing: params.framing,
       cropX: params.cropX,
+      focusExpr: followExpr,
       preset,
       keep,
       assPath,
@@ -406,7 +437,7 @@ export async function render(ctx: Ctx) {
       throw new JobFailure(`Output failed verification: ${check.problems.join("; ")}`);
     }
     const st = await stat(outFile);
-    return { outputKey: outKey, meta: { ...out, sizeBytes: st.size, removedSec: Number((winLen - outDur).toFixed(2)), verified: true } };
+    return { outputKey: outKey, meta: { ...out, sizeBytes: st.size, removedSec: Number((winLen - outDur).toFixed(2)), verified: true, ...(reframe ? { reframe } : {}) } };
   } finally {
     await rm(work, { recursive: true, force: true });
   }

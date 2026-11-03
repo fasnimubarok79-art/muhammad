@@ -41,7 +41,9 @@ function Seg3<T extends string>({ value, options, onChange, label }: { value: T;
   );
 }
 
-export function Inspector({ doc, clipLen, onConfig, onDoc }: { doc: Doc; clipLen: number; onConfig: (c: Partial<Config>, group?: boolean) => void; onDoc: (d: Partial<Doc>, group?: boolean) => void }) {
+export type FaceStatus = { state: "none" | "detecting" | "ready" | "error"; sampled?: number; withFace?: number; message?: string };
+
+export function Inspector({ doc, clipLen, onConfig, onDoc, face, onDetectFaces }: { doc: Doc; clipLen: number; onConfig: (c: Partial<Config>, group?: boolean) => void; onDoc: (d: Partial<Doc>, group?: boolean) => void; face: FaceStatus; onDetectFaces: () => void }) {
   const c = doc.config;
   const st = (s: Partial<Style>, group = true) => onConfig({ style: { ...c.style, ...s } }, group);
   return (
@@ -66,7 +68,15 @@ export function Inspector({ doc, clipLen, onConfig, onDoc }: { doc: Doc; clipLen
 
       <Group title="Format and framing">
         <Row label="Aspect"><Seg3 label="Aspect ratio" value={c.aspect} onChange={(v) => onConfig({ aspect: v })} options={[{ v: "9:16", l: "9:16" }, { v: "1:1", l: "1:1" }, { v: "16:9", l: "16:9" }]} /></Row>
-        <Row label="Framing"><Seg3 label="Framing" value={c.framing} onChange={(v) => onConfig({ framing: v })} options={[{ v: "blur", l: "Fit+blur" }, { v: "crop", l: "Crop" }, { v: "pad", l: "Bars" }]} /></Row>
+        <Row label="Framing"><Seg3 label="Framing" value={c.framing} onChange={(v) => onConfig({ framing: v })} options={[{ v: "blur", l: "Fit+blur" }, { v: "crop", l: "Crop" }, { v: "follow", l: "Follow face" }, { v: "pad", l: "Bars" }]} /></Row>
+        {c.framing === "follow" && (
+          <div className="rounded-ctl bg-surface2 px-2.5 py-2 text-[12px]" role="status">
+            {face.state === "detecting" && <span className="text-muted">Finding faces in this clip...</span>}
+            {face.state === "ready" && (face.withFace ? <span className="text-system">Face found in {face.withFace} of {face.sampled} sampled frames. The crop follows it.</span> : <span className="text-warn">No face found, so the crop stays centred.</span>)}
+            {face.state === "error" && <span className="text-danger">{face.message}</span>}
+            {face.state === "none" && <button className="btn-secondary h-7 px-2 text-[12px]" onClick={onDetectFaces}>Detect faces</button>}
+          </div>
+        )}
         {c.framing === "crop" && (
           <Row label="Crop focus" htmlFor="i-cx">
             <input id="i-cx" type="range" min={0} max={1} step={0.01} value={c.cropX} onChange={(e) => onConfig({ cropX: Number(e.target.value) }, true)} className="w-full accent-[#FF7A1A]" />

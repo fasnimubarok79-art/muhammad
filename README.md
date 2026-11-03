@@ -124,6 +124,7 @@ Tes E2E mengganti password owner. Jalankan hanya pada database uji.
 - Unduh dari YouTube/TikTok/Instagram/Facebook diuji dengan yt-dlp terhadap server lokal; unduhan dari platform aslinya belum bisa diuji di lingkungan pengembangan (jaringan diblokir).
 - Publikasi langsung ke TikTok/YouTube/Instagram/Facebook: alur OAuth (PKCE + state) sudah ditulis tetapi **belum diuji** dengan aplikasi platform sungguhan; upload via API belum diimplementasikan. Publish Studio menyediakan export + panduan manual.
 - Email reset password: token dan alurnya bekerja, tetapi transport email belum diimplementasikan (`SMTP_URL`).
+- Reframe Follow face: mengikuti wajah terbesar (subjek utama). Bila beberapa orang terlihat, belum memilih berdasarkan siapa yang sedang bicara.
 - Editor: track subtitle, trim, framing, preset, waveform, undo/redo, autosave sudah berfungsi. Overlay teks/gambar/logo, sticker, transisi antar-klip, efek per-segmen, speed control, dan multi-track video belum ada.
 - AI Script, judul/caption generatif: belum ada provider LLM. Saran judul/caption/hashtag saat ini diambil dari transkrip asli, bukan dikarang.
 - Dockerfile belum pernah di-build dan dites.

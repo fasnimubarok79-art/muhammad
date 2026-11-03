@@ -3,6 +3,9 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { fmtTime } from "@/lib/client";
 import type { Config, Seg } from "./useEditor";
+import { cropFraction, focusAt, type Keyframe } from "@/lib/media/reframe";
+
+export type ClientTrack = { start: number; end: number; keyframes: Keyframe[]; sampled: number; withFace: number; detector: string };
 
 export type PlayerHandle = { seek: (t: number) => void; toggle: () => void; playing: () => boolean };
 
@@ -15,6 +18,7 @@ type Props = {
   config: Config;
   segments: Seg[];
   srcSize: { w: number; h: number } | null;
+  track?: ClientTrack | null;
   onTime: (t: number) => void;
 };
 
@@ -28,7 +32,7 @@ export function activeSubtitle(segments: Seg[], t: number) {
   return { seg, idx };
 }
 
-export const Player = forwardRef<PlayerHandle, Props>(function Player({ sourceId, clipId, hasThumb, clipStart, clipLen, config, segments, srcSize, onTime }, ref) {
+export const Player = forwardRef<PlayerHandle, Props>(function Player({ sourceId, clipId, hasThumb, clipStart, clipLen, config, segments, srcSize, track, onTime }, ref) {
   const video = useRef<HTMLVideoElement>(null);
   const frame = useRef<HTMLDivElement>(null);
   const [t, setT] = useState(config.trimStart);
@@ -93,7 +97,14 @@ export const Player = forwardRef<PlayerHandle, Props>(function Player({ sourceId
 
   const sub = subs ? activeSubtitle(segments, t) : null;
   const ratio = RATIO[config.aspect];
-  const fit = config.framing === "crop" ? "cover" : "contain";
+  const fit = config.framing === "crop" || config.framing === "follow" ? "cover" : "contain";
+  // follow framing: same maths as the renderer, so the preview frames the face like the export
+  const focus =
+    config.framing === "follow" && track && srcSize
+      ? cropFraction(focusAt(track.keyframes, t + clipStart - track.start), srcSize.w / srcSize.h, ratio)
+      : config.framing === "follow"
+        ? 0.5
+        : config.cropX;
   const vertical = config.aspect === "9:16";
   // marginV is measured at a 1920px-tall frame; express it as a share of the frame height
   const bottomPct = vertical ? (config.style.marginV / 1920) * 100 : 12;
@@ -112,7 +123,7 @@ export const Player = forwardRef<PlayerHandle, Props>(function Player({ sourceId
             ref={video}
             src={`/api/media/source/${sourceId}#t=${(clipStart + inT).toFixed(2)}`}
             className="absolute inset-0 h-full w-full"
-            style={{ objectFit: fit, objectPosition: `${config.cropX * 100}% 50%` }}
+            style={{ objectFit: fit, objectPosition: `${focus * 100}% 50%` }}
             preload="auto"
             playsInline
             onLoadedData={() => setLoading(false)}

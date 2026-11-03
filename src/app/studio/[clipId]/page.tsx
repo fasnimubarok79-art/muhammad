@@ -7,8 +7,8 @@ import { Wordmark } from "@/components/app/AppShell";
 import { useSession } from "@/components/app/session";
 import { AiPanel } from "@/components/studio/AiPanel";
 import { ExportDialog } from "@/components/studio/ExportDialog";
-import { Inspector, SubtitleList } from "@/components/studio/Panels";
-import { Player, type PlayerHandle } from "@/components/studio/Player";
+import { Inspector, SubtitleList, type FaceStatus } from "@/components/studio/Panels";
+import { Player, type ClientTrack, type PlayerHandle } from "@/components/studio/Player";
 import { Timeline } from "@/components/studio/Timeline";
 import { defaultConfig, splitAt, useEditor, type Config, type Doc, type Seg } from "@/components/studio/useEditor";
 import { ErrorNote, Spinner } from "@/components/ui/bits";
@@ -17,7 +17,7 @@ import { api } from "@/lib/client";
 import { useMedia } from "@/hooks/useMedia";
 
 type ClipResp = {
-  clip: { id: string; projectId: string; title: string; description: string | null; startSec: number; endSec: number; score: number | null; scoreReasons: Array<{ factor: string; score: number; note: string }> | null; editConfig: Partial<Config> | null; hasThumbnail: boolean; updatedAt: string };
+  clip: { faceTrack: ClientTrack | null; id: string; projectId: string; title: string; description: string | null; startSec: number; endSec: number; score: number | null; scoreReasons: Array<{ factor: string; score: number; note: string }> | null; editConfig: Partial<Config> | null; hasThumbnail: boolean; updatedAt: string };
   source: { id: string; durationSec: number; width: number | null; height: number | null; hasAudio: boolean | null };
   segments: Array<{ start: number; end: number; text: string; words: Seg["words"] }>;
   silences: Array<{ start: number; end: number }>;
@@ -38,6 +38,8 @@ function Studio({ clipId }: { clipId: string }) {
   const player = useRef<PlayerHandle>(null);
   const lastT = useRef(0);
   const wide = useMedia("(min-width: 1024px)");
+  const [track, setTrack] = useState<ClientTrack | null>(null);
+  const [face, setFace] = useState<FaceStatus>({ state: "none" });
 
   const load = useCallback(async () => {
     try {
@@ -65,6 +67,30 @@ function Studio({ clipId }: { clipId: string }) {
   }, [data, clipLen]);
   const ed = useEditor(clipId, initial, data?.clip.updatedAt ?? null);
   const doc = ed.doc;
+
+  useEffect(() => {
+    const t = data?.clip.faceTrack;
+    if (t && data && t.start <= data.clip.startSec + 0.01 && t.end >= data.clip.endSec - 0.01) {
+      setTrack(t);
+      setFace({ state: "ready", sampled: t.sampled, withFace: t.withFace });
+    }
+  }, [data]);
+
+  const detectFaces = useCallback(async () => {
+    setFace({ state: "detecting" });
+    try {
+      const r = await api<{ track: ClientTrack }>(`/api/clips/${clipId}/reframe`, { method: "POST" });
+      setTrack(r.track);
+      setFace({ state: "ready", sampled: r.track.sampled, withFace: r.track.withFace });
+    } catch (e) {
+      setFace({ state: "error", message: e instanceof Error ? e.message : "Face detection failed" });
+    }
+  }, [clipId]);
+
+  // choosing "Follow face" runs detection once if there is no cached track yet
+  useEffect(() => {
+    if (ed.doc?.config.framing === "follow" && face.state === "none") void detectFaces();
+  }, [ed.doc?.config.framing, face.state, detectFaces]);
 
   const onTime = useCallback((t: number) => {
     if (Math.abs(t - lastT.current) > 0.03) {
@@ -115,7 +141,7 @@ function Studio({ clipId }: { clipId: string }) {
   const saveLabel = { saved: "All changes saved", dirty: "Unsaved changes", saving: "Saving...", error: "Save failed, retrying on next change" }[ed.saveState];
 
   const playerEl = (
-    <Player ref={player} sourceId={data.source.id} clipId={clipId} hasThumb={data.clip.hasThumbnail} clipStart={data.clip.startSec} clipLen={clipLen} config={doc.config} segments={doc.segments} srcSize={srcSize} onTime={onTime} />
+    <Player ref={player} sourceId={data.source.id} clipId={clipId} hasThumb={data.clip.hasThumbnail} clipStart={data.clip.startSec} clipLen={clipLen} config={doc.config} segments={doc.segments} srcSize={srcSize} track={track} onTime={onTime} />
   );
   const subsEl = (
     <SubtitleList doc={doc} clipId={clipId} time={time} selected={selected} onSelect={setSelected} onSegments={setSegments} onSeek={seek} onReplaced={load} />
@@ -161,13 +187,13 @@ function Studio({ clipId }: { clipId: string }) {
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto" role="tabpanel">
             {leftTab === "subs" ? subsEl : (
-              <AiPanel doc={doc} clipId={clipId} sourceId={data.source.id} score={data.clip.score} reasons={data.clip.scoreReasons ?? []} hashtags={data.suggestions.hashtags} silences={data.silences} srcSize={srcSize} onDoc={setDoc} onConfig={setConfig} onCaptionsRegenerated={load} />
+              <AiPanel doc={doc} clipId={clipId} sourceId={data.source.id} score={data.clip.score} reasons={data.clip.scoreReasons ?? []} hashtags={data.suggestions.hashtags} silences={data.silences} srcSize={srcSize} onDoc={setDoc} onConfig={setConfig} onCaptionsRegenerated={load} onFollowFace={() => { setConfig({ framing: "follow" }); if (face.state !== "ready" && face.state !== "detecting") void detectFaces(); }} />
             )}
           </div>
         </aside>
         <section aria-label="Preview" className="min-h-0 bg-bg">{playerEl}</section>
         <aside aria-label="Properties" className="row-span-2 min-h-0 overflow-y-auto border-l border-line bg-surface">
-          <Inspector doc={doc} clipLen={clipLen} onConfig={setConfig} onDoc={setDoc} />
+          <Inspector doc={doc} clipLen={clipLen} onConfig={setConfig} onDoc={setDoc} face={face} onDetectFaces={detectFaces} />
         </aside>
         <section aria-label="Timeline" className="col-span-2 min-h-0 border-t border-line bg-surface">
           <Timeline

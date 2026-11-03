@@ -10,7 +10,7 @@ export type Config = {
   preset: "cinematic_podcast" | "viral_short" | "educational" | "storytelling" | "clean_professional";
   aspect: "9:16" | "16:9" | "1:1";
   resolution: "450p" | "720p" | "1080p";
-  framing: "blur" | "crop" | "pad";
+  framing: "blur" | "crop" | "pad" | "follow";
   cropX: number;
   removeSilence: boolean;
   burnSubtitles: boolean;

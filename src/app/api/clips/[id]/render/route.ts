@@ -15,7 +15,7 @@ type P = { id: string };
 const Params = z.object({
   resolution: z.enum(["450p", "720p", "1080p"]).default("1080p"),
   aspect: z.enum(["9:16", "16:9", "1:1"]).default("9:16"),
-  framing: z.enum(["blur", "crop", "pad"]).default("blur"),
+  framing: z.enum(["blur", "crop", "pad", "follow"]).default("blur"),
   cropX: z.number().min(0).max(1).default(0.5),
   preset: z.enum(Object.keys(PRESETS) as [keyof typeof PRESETS, ...Array<keyof typeof PRESETS>]).default("viral_short"),
   removeSilence: z.boolean().default(false),

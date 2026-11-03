@@ -169,6 +169,7 @@ model Clip {
   hookText        String?
   targetDuration  Int? // 15 | 30 | 45 | 60 (or the speech length for very short sources)
   insights        Json? // { why, moments, momentsBasis, platforms }
+  faceTrack       Json? // { start, end, keyframes, sampled, withFace, detector } cached for follow-face reframing
   scoreReasons    Json?
   status          String   @default("candidate") // candidate | accepted | rejected
   favorite        Boolean  @default(false)

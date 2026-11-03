@@ -21,8 +21,8 @@ Status as of the commit that adds this file. "Done" means implemented **and** co
 | LLM analysis of the transcript | Missing | Planned as an optional provider; heuristics stay as the free fallback |
 | Auto subtitles, animated captions, keyword highlight | Done | Karaoke word highlight, pop, clean presets |
 | Silence removal, audio normalisation | Done | Subtitles stay in sync after cuts |
-| Smart zoom | Done | Slow push-in per preset (not face-aware yet) |
-| Face detection, speaker tracking, auto reframing | Missing | Planned next (OpenCV, see Phase 6) |
+| Smart zoom | Done | Slow push-in per preset |
+| Face detection, subject tracking, auto reframing | Done | OpenCV (Haar bundled; optional YuNet via `FACE_MODEL`), smoothed path with hysteresis and speed limit, follows the largest face; preview and render use the same maths |
 | Noise reduction | Partial | High-pass + loudness normalisation only; `afftdn` denoise planned as an option |
 | Intro / outro, watermark, background customisation | Missing | Planned (FFmpeg overlay / concat) |
 | 9:16, 16:9, 1:1 | Done | Never stretched: crop, fit+blur or bars |
@@ -59,7 +59,7 @@ Status as of the commit that adds this file. "Done" means implemented **and** co
 ## Roadmap (next phases)
 
 1. **Use platform subtitles when available.** Faster and free; Whisper stays as the fallback.
-2. **Face-aware reframing (OpenCV).** Sample frames, detect faces, smooth a crop path, follow the speaker in 9:16.
+2. ~~Face-aware reframing~~ done. Next for it: pick the active speaker by mouth movement when several faces are visible.
 3. **Batch export and file deletion.** Render several selected clips, delete sources/projects with storage cleanup.
 4. **Watermark, intro/outro, background colour/blur options.**
 5. **Quality audit after render.** Sharpness, loudness, sync and ratio checks with a 0 to 100 score and fixes.

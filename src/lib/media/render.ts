@@ -2,7 +2,7 @@ import type { Interval } from "./clipping";
 import type { Word } from "./subtitles";
 
 export type Aspect = "9:16" | "16:9" | "1:1";
-export type Framing = "blur" | "crop" | "pad";
+export type Framing = "blur" | "crop" | "pad" | "follow";
 export type PresetId = "cinematic_podcast" | "viral_short" | "educational" | "storytelling" | "clean_professional";
 export type Resolution = "450p" | "720p" | "1080p";
 
@@ -86,6 +86,7 @@ export type RenderPlan = {
   resolution: Resolution;
   framing: Framing;
   cropX: number; // 0..1 horizontal focus for crop framing
+  focusExpr?: string; // follow framing: FFmpeg expression of the subject centre (0..1) over output time t
   preset: Preset;
   keep: Interval[]; // clip-relative intervals to keep (whole clip when no silence removal)
   assPath?: string;
@@ -119,7 +120,11 @@ export function buildRenderArgs(p: RenderPlan): string[] {
   // 2. framing: never stretch; cover+crop, blurred fill, or letterbox
   const cover = `scale=${OW}:${OH}:force_original_aspect_ratio=increase`;
   const contain = `scale=${OW}:${OH}:force_original_aspect_ratio=decrease`;
-  if (p.framing === "crop") {
+  if (p.framing === "follow") {
+    // keep the tracked subject centred; clamp so the crop never leaves the frame
+    const fx = p.focusExpr ?? "0.5";
+    chains.push(`[vc]${cover},crop=${OW}:${OH}:x='max(0,min(in_w-out_w,(${fx})*in_w-out_w/2))':y='(in_h-out_h)/2'[vf]`);
+  } else if (p.framing === "crop") {
     chains.push(`[vc]${cover},crop=${OW}:${OH}:x='(in_w-out_w)*${f(Math.min(1, Math.max(0, p.cropX)))}':y='(in_h-out_h)/2'[vf]`);
   } else if (p.framing === "pad") {
     chains.push(`[vc]${contain},pad=${OW}:${OH}:(ow-iw)/2:(oh-ih)/2:color=black[vf]`);
