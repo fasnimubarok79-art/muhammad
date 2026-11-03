@@ -40,7 +40,42 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
       {!data && !error && <Spinner />}
       {data && (
         <>
-          <h1 className="text-[28px] font-extrabold">{data.project.title}</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="mr-auto text-[28px] font-extrabold">{data.project.title}</h1>
+            <button
+              className="btn-secondary h-9"
+              onClick={async () => {
+                const title = window.prompt("Nama proyek baru", data.project.title)?.trim();
+                if (!title || title === data.project.title) return;
+                try {
+                  await api(`/api/projects/${data.project.id}`, { method: "PATCH", body: { title } });
+                  toast({ tone: "success", title: "Nama proyek diganti" });
+                  void refresh();
+                } catch (e) {
+                  toast({ tone: "error", title: "Tidak tersimpan", body: e instanceof ClientApiError ? e.body.message : undefined });
+                }
+              }}
+            >
+              Ganti nama
+            </button>
+            <button
+              className="btn h-9 border border-danger/50 px-3 text-[13px] text-danger hover:bg-danger/10"
+              onClick={async () => {
+                const typed = window.prompt(`Ini akan menghapus proyek beserta semua video, klip, subtitle dan file render-nya secara permanen.\n\nKetik nama proyek untuk konfirmasi:\n${data.project.title}`);
+                if (typed === null) return;
+                if (typed.trim() !== data.project.title) return toast({ tone: "error", title: "Nama tidak cocok, proyek tidak dihapus" });
+                try {
+                  const r = await api<{ filesRemoved: number }>(`/api/projects/${data.project.id}?confirm=${encodeURIComponent(data.project.title)}`, { method: "DELETE" });
+                  toast({ tone: "success", title: "Proyek dihapus", body: `${r.filesRemoved} file media dihapus.` });
+                  window.location.href = "/projects";
+                } catch (e) {
+                  toast({ tone: "error", title: "Tidak dihapus", body: e instanceof ClientApiError ? e.body.message : undefined });
+                }
+              }}
+            >
+              Hapus proyek
+            </button>
+          </div>
           <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1fr] [&>*]:min-w-0">
             <ImportPanel projectId={data.project.id} onChange={onJobsChanged} />
             <section aria-labelledby="src-h" className="card p-5">

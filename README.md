@@ -64,6 +64,23 @@ powershell -ExecutionPolicy Bypass -File C:\clipkita-pro\scripts\start-windows.p
 
 Skrip setup memasang Python ke `C:\Python312` dan FFmpeg ke `C:\ffmpeg`, membuka halaman unduhan PostgreSQL bila belum terpasang, membuat database dan `.env`, memasang faster-whisper, lalu build. Font subtitle (Inter Black, SIL OFL) sudah ada di `worker/fonts`, jadi tidak perlu dipasang. Skrip ini belum diuji di mesin Windows sungguhan.
 
+## Backup dan pemulihan
+
+```bash
+npm run backup -- --with-tests
+```
+
+Membuat folder baru `CLIPKITA_BACKUP/clipkita-<waktu>-<commit>/` (default di sebelah folder project, atau `BACKUP_DIR`) berisi 01_SOURCE_CODE, 02_DATABASE (dump terenkripsi + schema + migrasi + jumlah baris), 03_ASSETS (video/render/thumbnail terenkripsi), 04_CONFIGURATION (template, tanpa nilai rahasia), 05_DOCUMENTATION, 06_DEPENDENCIES, 07_TEST_REPORT, 08_RECOVERY_TOOLS, plus `BACKUP_MANIFEST.md`, `BACKUP_CHECKSUMS.txt`, `BACKUP_VERSION.txt`. Backup lama tidak pernah ditimpa. Database dan file media dienkripsi AES-256-GCM dengan kunci di `BACKUP_KEY_FILE` (default `../CLIPKITA_BACKUP_KEY/backup.key`), di luar folder backup: simpan salinan kunci ini di tempat aman.
+
+```bash
+npm run backup:restore -- --from <folder backup> --verify-only
+```
+```bash
+npm run backup:restore -- --from <folder backup> --to <folder baru kosong>
+```
+
+Restore selalu ke folder baru dan database baru (`clipkita_restore_<waktu>`), memeriksa checksum dan kunci sebelum menulis apa pun, lalu membandingkan jumlah baris. Project dan database aktif tidak pernah disentuh. Lihat `scripts/backup/RECOVERY.md`.
+
 ## Token
 
 | Aktivitas | Biaya |

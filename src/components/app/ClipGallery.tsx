@@ -121,7 +121,7 @@ function ClipMedia({ clip }: { clip: GalleryClip }) {
       <span className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/75 px-1.5 py-0.5 text-[12px] font-semibold text-white tc">{fmtTime(clip.duration, false)}</span>
       {rendered && <span className="pointer-events-none absolute bottom-2 right-2 rounded bg-system px-1.5 py-0.5 text-[11px] font-bold text-bg">MP4 siap</span>}
       {state !== "playing" && (
-        <button onClick={play} className="absolute inset-0 grid place-items-center" aria-label={`Putar ${clip.hookText ?? clip.title}`}>
+        <button onClick={play} className="absolute inset-0 flex items-end justify-center pb-[20%]" aria-label={`Putar ${clip.hookText ?? clip.title}`}>
           {state === "loading" ? (
             <Spinner label="Memuat" />
           ) : state === "error" ? (
@@ -186,19 +186,18 @@ function ClipCard({ clip, selected, onSelect, onChanged, showProject }: { clip: 
           {showProject && clip.project && <> · {clip.project.title}</>}
         </p>
         {snippet && <p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-faint">&ldquo;{snippet}&rdquo;</p>}
-        {running && <div className="mt-2"><StatusPill status={clip.latestRender!.status} progress={clip.latestRender!.progress} /></div>}
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+          {clip.score != null && <span className="font-semibold text-edit tc">Viral {Math.round(clip.score)} <span className="font-normal text-faint">(estimasi)</span></span>}
+          {clip.latestRender ? <StatusPill status={clip.latestRender.status} progress={clip.latestRender.progress} /> : <span className="text-faint">Belum dirender</span>}
+        </div>
 
         <div className="mt-auto pt-3">
           <div className="grid grid-cols-2 gap-2">
-            {rendered ? (
-              <button className="btn h-9 bg-system px-2 text-[13px] text-bg hover:brightness-110" onClick={download} title="10 token, sekali per file">Unduh MP4</button>
-            ) : (
-              <Link href={`/studio/${clip.id}?panel=export`} className="btn h-9 bg-system px-2 text-[13px] text-bg hover:brightness-110" title="Render dulu, lalu unduh">Render MP4</Link>
-            )}
-            <button className="btn-secondary h-9 px-2 text-[13px]" onClick={copyLink}>Salin tautan</button>
+            <button className="btn h-9 bg-system px-2 text-[13px] text-bg hover:brightness-110 disabled:bg-surface2 disabled:text-faint" onClick={download} disabled={!rendered} title={rendered ? "10 token, sekali per file" : "Belum ada file MP4. Render dulu lewat Edit Video."}>Unduh MP4</button>
+            <button className="btn-secondary h-9 px-2 text-[13px]" onClick={copyLink}>Salin Tautan</button>
           </div>
+          <Link href={`/studio/${clip.id}${rendered ? "" : "?panel=export"}`} className="btn mt-2 h-9 w-full border border-edit/60 bg-edit/10 px-2 text-[13px] text-edit hover:bg-edit/20">Edit Video</Link>
           <div className="mt-1.5 flex items-center">
-            <Link href={`/studio/${clip.id}`} className="btn-ghost h-8 px-1.5 text-[12px]">Edit</Link>
             <button className="btn-ghost h-8 px-1.5 text-[12px]" aria-pressed={clip.favorite} onClick={() => patch({ favorite: !clip.favorite }, clip.favorite ? "Dihapus dari favorit" : "Ditambahkan ke favorit")}>
               <span className={clip.favorite ? "text-edit" : ""}>{clip.favorite ? "★ Favorit" : "☆ Favorit"}</span>
             </button>
@@ -220,8 +219,9 @@ function ClipCard({ clip, selected, onSelect, onChanged, showProject }: { clip: 
   );
 }
 
-export function ClipGallery({ projectId, refreshKey = 0, viral = false, title = "Klip" }: { projectId?: string; refreshKey?: number; viral?: boolean; title?: string }) {
-  const [q, setQ] = useState("");
+export function ClipGallery({ projectId, refreshKey = 0, viral = false, title = "Klip", initialQuery = "" }: { projectId?: string; refreshKey?: number; viral?: boolean; title?: string; initialQuery?: string }) {
+  const [q, setQ] = useState(initialQuery);
+  useEffect(() => setQ(initialQuery), [initialQuery]);
   const [status, setStatus] = useState("");
   const [fav, setFav] = useState(false);
   const [sort, setSort] = useState("score");

@@ -177,7 +177,7 @@ export function ImportPanel({ projectId, onChange }: { projectId: string; onChan
         </div>
       )}
 
-      <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-line pt-5">
+      <div id="upload" className="mt-5 flex scroll-mt-24 flex-wrap items-center gap-3 border-t border-line pt-5">
         <input
           ref={fileRef}
           type="file"

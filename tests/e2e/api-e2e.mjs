@@ -180,6 +180,28 @@ ok(r.status === 200, "owner disables user B");
 r = await B.req("/api/projects");
 ok(r.status === 401, "disabled user is signed out");
 
+// ---- export history, profile, sessions, project delete
+r = await A.req("/api/jobs?kind=RENDER");
+ok(r.status === 200 && r.data.jobs.length >= 1 && r.data.jobs.every((j) => j.kind === "RENDER") && "clipTitle" in r.data.jobs[0], "export history lists only render jobs with clip titles");
+r = await A.req("/api/me", { method: "PATCH", body: { name: "Renamed A" } });
+ok(r.status === 200 && r.data.name === "Renamed A", "profile name can be changed");
+const A2 = new Client("A-second-device");
+await A2.req("/api/auth/login", { method: "POST", body: { login: `a-${stamp}@example.com`, password: "correct horse battery" } });
+r = await A.req("/api/auth/sessions", { method: "DELETE" });
+ok(r.status === 200 && r.data.signedOut >= 1, "sign out other devices");
+r = await A2.req("/api/projects");
+ok(r.status === 401, "the other device is signed out");
+r = await A.req("/api/projects");
+ok(r.status === 200, "current device stays signed in");
+r = await A.req(`/api/projects/${projectId}?confirm=wrong-name`, { method: "DELETE" });
+ok(r.status === 400 && r.data.error.code === "CONFIRM_REQUIRED", "project delete needs the exact name");
+r = await O.req(`/api/projects/${projectId}?confirm=E2E%20project`, { method: "DELETE" });
+ok(r.status === 404, "another account cannot delete the project");
+r = await A.req(`/api/projects/${projectId}?confirm=E2E%20project`, { method: "DELETE" });
+ok(r.status === 200 && r.data.filesRemoved >= 3, "project deleted with its media files", JSON.stringify(r.data));
+r = await A.req(`/api/media/render/${renderId}`);
+ok(r.status === 404, "deleted render is gone");
+
 // ---- logout + brute force limit
 r = await A.req("/api/auth/logout", { method: "POST" });
 ok(r.status === 200 && (await A.me()) === null, "logout ends the session");

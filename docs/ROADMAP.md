@@ -31,11 +31,11 @@ Status as of the commit that adds this file. "Done" means implemented **and** co
 | 4K export | Missing | Only meaningful for 4K sources; planned behind a source-resolution check |
 | Export several clips at once | Missing | Planned: batch render from the gallery selection |
 | Dashboard: videos analysed, clips, minutes processed, projects, render status, activity | Done | All from the database |
-| Delete files | Missing | Planned: delete source/project with storage cleanup |
+| Delete files | Done | Delete project (typed-name confirmation) removes its media files; refused while jobs run |
 | Temporary file cleanup | Done for render work files | Source retention policy still to define |
 | Quality auditor (sharpness, audio, sync, ratio scores) | Missing | Planned after render (ffmpeg blurdetect/ebur128/ffprobe) |
 | B-roll, music, sound effects, speed ramp, keyframes, stabilisation, motion blur | Missing | Large items; music/SFX need a licensed library |
-| Separate menus (Analyzer, Export Center, Settings, Subscription) | Partial | Same functions live in Projects, Studio and Tokens; navigation can be split later |
+| Separate menus | Done | Sidebar: Dashboard, Galeri Klip, Proyek, Klip Viral, AI Video Editor, Subtitle Studio, Riwayat Export, Publikasi, Token, Pengaturan (+ Admin) |
 | Purple/blue palette, CLIPGEN / CLIPFORGE name | Not changed | Brand decisions: see "Open decisions" |
 
 ## Phase 2: architecture (current)
@@ -72,3 +72,7 @@ Status as of the commit that adds this file. "Done" means implemented **and** co
 - Product name: ClipKita, CLIPGEN AI or CLIPFORGE AI STUDIO.
 - Palette: the current design uses orange (edit) and mint (system). A purple/blue palette is possible, but it is a brand change that needs `DESIGN.md` updated first.
 - Whether to add a paid LLM provider, and which one.
+
+## Backup and recovery (done)
+
+`npm run backup` and `npm run backup:restore` (see README). Verified in development: backup did not change live data, checksums, tamper detection, wrong-key refusal before any write, restore into a new folder and database with matching row counts, and a restored app that built, passed 94 tests against the restored database and showed the same data as the live app.
