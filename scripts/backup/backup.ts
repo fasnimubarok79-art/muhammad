@@ -13,7 +13,7 @@ import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { PrismaClient } from "@prisma/client";
-import { encryptFile, humanSize, listFiles, loadOrCreateKey, log, pgEnv, pgTool, ROOT, run, sha256File, type Manifest } from "./common";
+import { encryptFile, humanSize, listFiles, loadOrCreateKey, makeKeyCheck, log, pgEnv, pgTool, ROOT, run, sha256File, type Manifest } from "./common";
 
 const CATEGORIES = ["01_SOURCE_CODE", "02_DATABASE", "03_ASSETS", "04_CONFIGURATION", "05_DOCUMENTATION", "06_DEPENDENCIES", "07_TEST_REPORT", "08_RECOVERY_TOOLS"] as const;
 const EXCLUDED = [
@@ -169,6 +169,7 @@ async function main() {
     parts,
     excluded: EXCLUDED,
     warnings,
+    keyCheck: makeKeyCheck(key),
   };
   await writeFile(path.join(dir, "manifest.json"), JSON.stringify(manifest, null, 2));
   await writeFile(path.join(dir, "BACKUP_CHECKSUMS.txt"), parts.map((p) => `${p.sha256}  ${p.path}`).join("\n") + "\n");

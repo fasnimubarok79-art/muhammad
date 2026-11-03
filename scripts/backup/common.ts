@@ -110,6 +110,25 @@ export async function decryptFile(src: string, dest: string, key: Buffer) {
   await pipeline(createReadStream(src, { start: head.length, end: size - 17 }), decipher, createWriteStream(dest));
 }
 
+/** A tiny encrypted marker stored in the manifest, so a wrong key is detected before restoring anything. */
+export function makeKeyCheck(key: Buffer): string {
+  const iv = randomBytes(12);
+  const c = createCipheriv("aes-256-gcm", key, iv);
+  const enc = Buffer.concat([c.update("clipkita-key-check", "utf8"), c.final()]);
+  return Buffer.concat([iv, enc, c.getAuthTag()]).toString("base64");
+}
+
+export function keyMatches(check: string, key: Buffer): boolean {
+  try {
+    const b = Buffer.from(check, "base64");
+    const d = createDecipheriv("aes-256-gcm", key, b.subarray(0, 12));
+    d.setAuthTag(b.subarray(b.length - 16));
+    return Buffer.concat([d.update(b.subarray(12, b.length - 16)), d.final()]).toString("utf8") === "clipkita-key-check";
+  } catch {
+    return false;
+  }
+}
+
 export function humanSize(n: number) {
   const u = ["B", "KB", "MB", "GB"];
   let i = 0;
@@ -142,4 +161,5 @@ export type Manifest = {
   parts: Array<{ path: string; bytes: number; sha256: string; encrypted: boolean; category: string }>;
   excluded: string[];
   warnings: string[];
+  keyCheck?: string;
 };

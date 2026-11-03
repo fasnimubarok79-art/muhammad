@@ -11,7 +11,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { decryptFile, listFiles, loadOrCreateKey, log, pgEnv, pgTool, ROOT, run, sha256File, type Manifest } from "./common";
+import { decryptFile, keyMatches, listFiles, loadOrCreateKey, log, pgEnv, pgTool, ROOT, run, sha256File, type Manifest } from "./common";
 
 function arg(name: string) {
   const i = process.argv.indexOf(`--${name}`);
@@ -51,8 +51,18 @@ async function main() {
   const target = path.resolve(to);
   if (target === ROOT || ROOT.startsWith(target + path.sep)) throw new Error("Refusing to restore into the live project");
   if (existsSync(target) && readdirSync(target).length) throw new Error(`${target} is not empty; choose a new folder`);
-  await mkdir(target, { recursive: true });
   const key = await loadOrCreateKey(path.resolve(process.env.BACKUP_KEY_FILE ?? path.join(ROOT, "..", "CLIPKITA_BACKUP_KEY", "backup.key")), false);
+  if (manifest.keyCheck && !keyMatches(manifest.keyCheck, key)) throw new Error("The backup key does not match this backup (BACKUP_KEY_FILE); nothing was restored");
+  // validate the database target BEFORE writing anything, so a refusal leaves no partial restore behind
+  const dbName = arg("db") ?? `clipkita_restore_${Date.now()}`;
+  if (manifest.database) {
+    if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is needed to create the restore database");
+    if (!/^[a-z_][a-z0-9_]{0,62}$/.test(dbName)) throw new Error("Database name must be lower-case letters, digits and _");
+    if (dbName === new URL(process.env.DATABASE_URL).pathname.replace(/^\//, "")) throw new Error("Refusing to restore over the live database");
+    const exists = (await run(pgTool("psql"), ["-tAc", `SELECT 1 FROM pg_database WHERE datname='${dbName}'`], { env: pgEnv(process.env.DATABASE_URL, "postgres") })).trim();
+    if (exists === "1") throw new Error(`Database ${dbName} already exists; choose another name`);
+  }
+  await mkdir(target, { recursive: true });
   const tmp = path.join(os.tmpdir(), `ckrs-${Date.now()}`);
   await mkdir(tmp, { recursive: true });
 
@@ -64,15 +74,8 @@ async function main() {
 
   // 3. database into a NEW database
   if (manifest.database) {
-    const url = process.env.DATABASE_URL;
-    if (!url) throw new Error("DATABASE_URL is needed to create the restore database");
-    const dbName = arg("db") ?? `clipkita_restore_${Date.now()}`;
-    if (!/^[a-z_][a-z0-9_]{0,62}$/.test(dbName)) throw new Error("Database name must be lower-case letters, digits and _");
-    const live = new URL(url).pathname.replace(/^\//, "");
-    if (dbName === live) throw new Error("Refusing to restore over the live database");
+    const url = process.env.DATABASE_URL!;
     const admin = pgEnv(url, "postgres");
-    const exists = (await run(pgTool("psql"), ["-tAc", `SELECT 1 FROM pg_database WHERE datname='${dbName}'`], { env: admin })).trim();
-    if (exists === "1") throw new Error(`Database ${dbName} already exists; choose another name`);
     await run(pgTool("psql"), ["-qc", `CREATE DATABASE "${dbName}"`], { env: admin });
     const dump = path.join(tmp, "database.dump");
     await decryptFile(path.join(dir, "02_DATABASE", "database.dump.enc"), dump, key);
