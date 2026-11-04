@@ -11,3 +11,7 @@ models/
 next-env.d.ts
 coverage/
 *.log
+
+# owner test videos are never committed
+tests/fixtures/owner/*
+!tests/fixtures/owner/README.md
