@@ -1,4 +1,4 @@
-# Starts the ClipKita web server and the video worker in two windows.
+# Starts the ClipKita-Pro web server and the video worker in two windows.
 #   powershell -ExecutionPolicy Bypass -File C:\clipkita-pro\scripts\start-windows.ps1
 $Root = Split-Path -Parent $PSScriptRoot
 
@@ -13,11 +13,11 @@ if (-not $listening -and (Test-Path (Join-Path $PgData "PG_VERSION"))) {
   }
 }
 if (-not (Get-NetTCPConnection -LocalPort 5432 -State Listen -ErrorAction SilentlyContinue)) {
-  Write-Host "WARNING: PostgreSQL is not running on port 5432. ClipKita will not work until it is started." -ForegroundColor Yellow
+  Write-Host "WARNING: PostgreSQL is not running on port 5432. ClipKita-Pro will not work until it is started." -ForegroundColor Yellow
 }
 
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$Root'; `$host.UI.RawUI.WindowTitle = 'ClipKita web'; npm start"
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$Root'; `$host.UI.RawUI.WindowTitle = 'ClipKita worker'; npm run worker"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$Root'; `$host.UI.RawUI.WindowTitle = 'ClipKita-Pro web'; npm start"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$Root'; `$host.UI.RawUI.WindowTitle = 'ClipKita-Pro worker'; npm run worker"
 Start-Sleep -Seconds 8
 Start-Process "http://localhost:3000"
-Write-Host "Two windows opened (web and worker). Keep both open while you use ClipKita. Close them to stop."
+Write-Host "Two windows opened (web and worker). Keep both open while you use ClipKita-Pro. Close them to stop."

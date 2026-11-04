@@ -64,7 +64,7 @@ export default function Landing() {
               Paste a link. Get the <span className="text-edit">clips</span> worth posting.
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-[17px] leading-relaxed text-muted">
-              ClipKita fetches your public YouTube, TikTok, Instagram or Facebook video, transcribes every word, finds moments that start and end on whole sentences, and renders vertical clips with word-by-word captions.
+              ClipKita-Pro fetches your public YouTube, TikTok, Instagram or Facebook video, transcribes every word, finds moments that start and end on whole sentences, and renders vertical clips with word-by-word captions.
             </p>
             <form className="mx-auto mt-10 max-w-3xl" onSubmit={(e) => { e.preventDefault(); start(true); }}>
               <div className="card flex flex-col gap-2 p-2 shadow-float sm:flex-row sm:items-center">
@@ -98,7 +98,7 @@ export default function Landing() {
                     <span className="absolute -top-6 left-0 whitespace-nowrap text-[11px] font-semibold text-edit tc">00:05.14 → 00:25.11 · score 79 (est.)</span>
                   </div>
                 </div>
-                <figcaption className="mt-3 text-[12px] leading-relaxed text-muted">The clip window chosen by ClipKita on the sample: it starts on a full sentence and skips the silent intro.</figcaption>
+                <figcaption className="mt-3 text-[12px] leading-relaxed text-muted">The clip window chosen by ClipKita-Pro on the sample: it starts on a full sentence and skips the silent intro.</figcaption>
               </div>
             </figure>
 

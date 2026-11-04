@@ -4,6 +4,7 @@
  * with the platform and passes its review. Direct publishing is NOT implemented: the platforms'
  * upload APIs need app review and real credentials that this project does not have yet.
  */
+import "./env-alias";
 export type Provider = {
   id: "youtube" | "tiktok" | "instagram" | "facebook";
   label: string;
@@ -84,8 +85,6 @@ export function providerStatus(p: Provider) {
     requiredEnv: [p.clientIdEnv, p.clientSecretEnv],
     scopes: p.scopes,
     docs: p.docs,
-    directPublish: false,
-    directPublishNote: "Direct publishing is not available yet. Download the MP4 and follow the manual steps.",
     manualPublish: p.manualPublish,
   };
 }

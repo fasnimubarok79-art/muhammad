@@ -1,5 +1,5 @@
 /**
- * ClipKita independent backup.
+ * ClipKita-Pro independent backup.
  *
  *   npm run backup                 (uses BACKUP_DIR, default: <project>/../CLIPKITA_BACKUP)
  *   npm run backup -- --with-tests (also runs typecheck + unit tests into 07_TEST_REPORT)
@@ -8,6 +8,7 @@
  * the media files (user data) are encrypted with AES-256-GCM using a key kept OUTSIDE the backup
  * folder (BACKUP_KEY_FILE, default: <project>/../CLIPKITA_BACKUP_KEY/backup.key).
  */
+import "../../src/lib/env-alias";
 import { copyFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import os from "node:os";
@@ -33,7 +34,7 @@ async function main() {
 
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "").replace("T", "-");
   const commit = (await run("git", ["rev-parse", "--short", "HEAD"], { cwd: ROOT })).trim();
-  const version = `clipkita-${stamp}-${commit}`;
+  const version = `clipkita-pro-${stamp}-${commit}`;
   const dir = path.join(backupRoot, version);
   if (existsSync(dir)) throw new Error(`Backup ${dir} already exists; refusing to overwrite`);
   for (const c of CATEGORIES) await mkdir(path.join(dir, c), { recursive: true });
@@ -178,7 +179,7 @@ async function main() {
   await writeFile(
     path.join(dir, "BACKUP_MANIFEST.md"),
     [
-      `# ClipKita backup ${version}`,
+      `# ClipKita-Pro backup ${version}`,
       "",
       `- Created: ${manifest.createdAt}`,
       `- Project: ${ROOT} (commit ${commit}${dirty.length ? `, ${dirty.length} uncommitted changes NOT included` : ""})`,

@@ -5,6 +5,7 @@
  * - never resets an existing owner's password;
  * - never promotes or creates any other admin.
  */
+import "../src/lib/env-alias";
 import { PrismaClient } from "@prisma/client";
 import { hashPassword, normaliseUsername, PASSWORD_RULES } from "../src/lib/crypto";
 
@@ -13,6 +14,7 @@ const db = new PrismaClient();
 async function main() {
   const email = (process.env.OWNER_EMAIL ?? "ADMIN16112000@gmail.com").trim().toLowerCase();
   const username = normaliseUsername(process.env.OWNER_USERNAME ?? "ADMINPRO16112000");
+  const ownerName = (process.env.OWNER_NAME ?? "Muhammad Fasni Mubarok").trim().slice(0, 80);
   const existing = await db.user.findUnique({ where: { email } });
   if (existing) {
     if (existing.role !== "OWNER_ADMIN") {
@@ -20,9 +22,9 @@ async function main() {
       process.exitCode = 1;
       return;
     }
-    if (existing.username !== username) {
-      await db.user.update({ where: { id: existing.id }, data: { username } });
-      console.log(`[seed] owner admin already exists (${email}); login username set to ${username}, password unchanged`);
+    if (existing.username !== username || existing.name !== ownerName) {
+      await db.user.update({ where: { id: existing.id }, data: { username, name: ownerName } });
+      console.log(`[seed] owner admin already exists (${email}); login username ${username}, name "${ownerName}", password unchanged`);
     } else {
       console.log(`[seed] owner admin already exists (${email} / ${username}), nothing changed`);
     }
@@ -35,7 +37,7 @@ async function main() {
     return;
   }
   await db.user.create({
-    data: { email, username, name: "Owner", role: "OWNER_ADMIN", passwordHash: await hashPassword(password), mustChangePassword: true, tokenBalance: 0 },
+    data: { email, username, name: ownerName, role: "OWNER_ADMIN", passwordHash: await hashPassword(password), mustChangePassword: true, tokenBalance: 0 },
   });
   await db.auditLog.create({ data: { action: "owner.bootstrap", target: email } });
   console.log(`[seed] owner admin created (${email} / ${username}); password change is required at first login`);

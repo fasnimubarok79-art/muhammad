@@ -5,12 +5,14 @@ import { readSession } from "@/lib/auth";
 import { randomToken } from "@/lib/crypto";
 import { env } from "@/lib/env";
 import { provider } from "@/lib/social";
+import { FEATURES } from "@config/features";
 
 /** Begin OAuth (authorization code + PKCE + state). GET because it is a top-level navigation. */
 export async function GET(_req: Request, { params }: { params: { platform: string } }) {
   const s = await readSession();
   if (!s) return NextResponse.redirect(new URL("/login", env().APP_URL));
   const p = provider(params.platform);
+  if (!FEATURES.socialAccountLinking) return NextResponse.json({ error: { code: "NOT_FOUND", message: "Not found" } }, { status: 404 });
   if (!p) return NextResponse.json({ error: { code: "NOT_FOUND", message: "Unknown platform" } }, { status: 404 });
   const clientId = process.env[p.clientIdEnv];
   if (!clientId || !process.env[p.clientSecretEnv]) {

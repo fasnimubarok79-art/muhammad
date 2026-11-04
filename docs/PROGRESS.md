@@ -4,9 +4,10 @@ Read this first at the start of every session. One phase per session.
 
 ## Current phase
 
-**Phase 0: audit.** Done for the parts of the master prompt that have content. Waiting for owner decisions (see "Blocking decisions") before Phase 1.
+**Phase 1: rebrand + feature flags.** Done and merged to `main`.
+**Next: Phase 2** (proposed): audit report page (topics, moment map from stored silences/scenes, source audio/video quality) and the "Cinematic Punch" preset once its spec text is provided.
 
-Branch: `feat/clipkita-pro-phase-0`. Base: `main` at `677ad36`.
+Phases: 0 audit (done, `feat/clipkita-pro-phase-0`), 1 rebrand and flags (done, `feat/clipkita-pro-phase-1`).
 
 ## Master prompt received
 
@@ -38,13 +39,13 @@ Legend: DONE (implemented and tested), PARTIAL, MISSING, CONFLICT (differs from 
 
 | Prompt item | Status | Notes |
 |---|---|---|
-| Rebrand to ClipKita-Pro, slug `clipkita-pro` | PARTIAL | Old names only in `docs/ROADMAP.md` (3 lines). Display name is still "ClipKita", package name `clipkita` |
-| Env prefix `CKP_` | MISSING | All variables unprefixed today; renaming breaks the owner's existing `.env` unless old names stay supported |
-| Database name `clipkita_pro` | MISSING | Database is `clipkita`; renaming needs backup and restore on the owner's laptop |
-| Owner role via seed/CLI only, unlimited | DONE | `OWNER_ADMIN`, `npm run db:seed`, `npm run owner:reset`; owner display name not yet "Muhammad Fasni Mubarok" |
+| Rebrand to ClipKita-Pro, slug `clipkita-pro` | DONE | Title, wordmark, package, Docker, scripts, docs. `git grep -i -E "clipgen|clipforge|clip\.kita"` returns nothing outside CHANGELOG.md |
+| Env prefix `CKP_` | DONE | `src/lib/env-alias.ts`: CKP_ wins, old names still work; `DATABASE_URL` unchanged on purpose. Verified with a CKP_-only env file |
+| Database name `clipkita_pro` | PARTIAL | New installs create `clipkita_pro`. Existing installs: documented move via backup + restore (README), to be run by the owner |
+| Owner role via seed/CLI only, unlimited | DONE | Owner display name "Muhammad Fasni Mubarok" set by seed (`CKP_OWNER_NAME`) |
 | Branch per phase, small commits, no secrets or videos in git | DONE | `.gitignore` covers `.env`, storage, logs |
 | Evidence-based reports | DONE | Tests, ffprobe checks, screenshots in earlier sessions |
-| No dead buttons; unbuilt features hidden by `config/features.ts` | CONFLICT | No feature flag file. Editor hub and Publish page show honest "in development / not available" text, which this prompt forbids (hide instead) |
+| No dead buttons; unbuilt features hidden by `config/features.ts` | DONE (labels) | `config/features.ts` added. "In development", "not available", "NEED CONFIGURATION" texts removed; untested OAuth linking hidden and its routes return 404 while off. Automated dead-button crawler still MISSING |
 | Dashboard numbers from database | DONE | |
 | AI scores shown as estimates with factors | DONE | Viral, hook, engagement with reasons |
 | 1. Sign up, login | DONE | Email + password |
@@ -92,9 +93,9 @@ Legend: DONE (implemented and tested), PARTIAL, MISSING, CONFLICT (differs from 
 - No CI pipeline.
 - Rate limiter is in memory (single instance only).
 - Browser QA scripts live outside the repo.
-- Owner display name in seed is "Owner".
-- `docs/ROADMAP.md` still uses the old product names.
+- Existing laptop install still on database `clipkita` until the owner runs the documented move.
 
 ## Log
 
 - 2026-11-04 Phase 0 audit written; branch created; `tests/fixtures/owner/` added and ignored.
+- 2026-11-04 Phase 1: rebrand, CKP_ env names, owner name, feature flags. Evidence: rebrand grep empty, 100 unit/integration tests, 67 API E2E checks, build, CKP_-only env run, browser check of 11 pages (no banned labels, no console errors).

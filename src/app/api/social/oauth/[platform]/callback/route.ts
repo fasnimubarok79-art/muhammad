@@ -6,6 +6,7 @@ import { readSession } from "@/lib/auth";
 import { encryptSecret, safeEqual } from "@/lib/crypto";
 import { env } from "@/lib/env";
 import { provider } from "@/lib/social";
+import { FEATURES } from "@config/features";
 
 const back = (msg: string, ok = false) => NextResponse.redirect(new URL(`/social?${ok ? "connected" : "error"}=${encodeURIComponent(msg)}`, env().APP_URL));
 
@@ -15,6 +16,7 @@ const back = (msg: string, ok = false) => NextResponse.redirect(new URL(`/social
  * platforms because no app credentials are configured.
  */
 export async function GET(req: NextRequest, { params }: { params: { platform: string } }) {
+  if (!FEATURES.socialAccountLinking) return NextResponse.json({ error: { code: "NOT_FOUND", message: "Not found" } }, { status: 404 });
   const p = provider(params.platform);
   const s = await readSession();
   if (!p || !s) return back("Session expired, please try again");

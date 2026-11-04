@@ -1,4 +1,4 @@
-# ClipKita recovery guide
+# ClipKita-Pro recovery guide
 
 A backup folder looks like `CLIPKITA_BACKUP/clipkita-<date>-<commit>/` with:
 

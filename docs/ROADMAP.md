@@ -1,8 +1,8 @@
-# ClipKita: audit and technical roadmap
+# ClipKita-Pro: audit and technical roadmap
 
 Status as of the commit that adds this file. "Done" means implemented **and** covered by a test or a run that was actually executed. "Partial" says what is missing.
 
-## Phase 1: audit against the CLIPGEN / CLIPFORGE requirements
+## Phase 1: audit against the earlier product specs (see CHANGELOG)
 
 | Requirement | Status | Notes |
 |---|---|---|
@@ -36,7 +36,7 @@ Status as of the commit that adds this file. "Done" means implemented **and** co
 | Quality auditor (sharpness, audio, sync, ratio scores) | Missing | Planned after render (ffmpeg blurdetect/ebur128/ffprobe) |
 | B-roll, music, sound effects, speed ramp, keyframes, stabilisation, motion blur | Missing | Large items; music/SFX need a licensed library |
 | Separate menus | Done | Sidebar: Dashboard, Galeri Klip, Proyek, Klip Viral, AI Video Editor, Subtitle Studio, Riwayat Export, Publikasi, Token, Pengaturan (+ Admin) |
-| Purple/blue palette, CLIPGEN / CLIPFORGE name | Not changed | Brand decisions: see "Open decisions" |
+| Purple/blue palette | Not changed | Brand decision pending |
 
 ## Phase 2: architecture (current)
 
@@ -69,7 +69,7 @@ Status as of the commit that adds this file. "Done" means implemented **and** co
 
 ## Open decisions for the owner
 
-- Product name: ClipKita, CLIPGEN AI or CLIPFORGE AI STUDIO.
+- Product name: decided, ClipKita-Pro (2026-11-04).
 - Palette: the current design uses orange (edit) and mint (system). A purple/blue palette is possible, but it is a brand change that needs `DESIGN.md` updated first.
 - Whether to add a paid LLM provider, and which one.
 

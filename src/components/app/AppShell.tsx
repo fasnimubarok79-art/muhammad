@@ -25,8 +25,8 @@ const NAV = [
 
 export function Wordmark({ compact = false }: { compact?: boolean }) {
   return (
-    <Link href="/" className="font-display text-[17px] font-extrabold tracking-tight" style={{ fontStretch: "118%" }} aria-label="ClipKita">
-      {compact ? "c" : "clipkita"}
+    <Link href="/" className="font-display text-[17px] font-extrabold tracking-tight" style={{ fontStretch: "118%" }} aria-label="ClipKita-Pro">
+      {compact ? "c" : <>clipkita<span className="text-muted">-pro</span></>}
       <span className="text-edit">.</span>
     </Link>
   );

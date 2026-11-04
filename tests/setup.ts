@@ -7,3 +7,6 @@ if (existsSync(".env")) {
     if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2];
   }
 }
+
+import { applyEnvAliases } from "../src/lib/env-alias";
+applyEnvAliases();

@@ -4,6 +4,7 @@
  *   npm run owner:reset
  * The owner must change the password again at the next login, and all owner sessions are signed out.
  */
+import "../src/lib/env-alias";
 import { PrismaClient } from "@prisma/client";
 import { hashPassword, normaliseUsername, PASSWORD_RULES } from "../src/lib/crypto";
 

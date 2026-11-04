@@ -1,4 +1,4 @@
-# ClipKita one-time setup for Windows (PowerShell 5.1+).
+# ClipKita-Pro one-time setup for Windows (PowerShell 5.1+).
 # Run from Command Prompt or PowerShell:
 #   powershell -ExecutionPolicy Bypass -File C:\clipkita-pro\scripts\setup-windows.ps1
 # Safe to run again: every step checks what already exists and skips it.
@@ -32,7 +32,7 @@ function RandomPassword() {
 }
 
 Set-Location $Root
-Write-Host "ClipKita setup in $Root" -ForegroundColor White
+Write-Host "ClipKita-Pro setup in $Root" -ForegroundColor White
 
 # 1. Node.js
 Step 1 "Node.js"
@@ -99,9 +99,9 @@ if (Test-Path $envFile) {
   if ($exists -match "1") { & $psql -U postgres -h 127.0.0.1 -qc "ALTER ROLE clipkita WITH LOGIN PASSWORD '$dbPass' CREATEDB;" }
   else { & $psql -U postgres -h 127.0.0.1 -qc "CREATE ROLE clipkita LOGIN PASSWORD '$dbPass' CREATEDB;" }
   if ($LASTEXITCODE -ne 0) { Fail "Could not create the database user." }
-  $dbExists = (& $psql -U postgres -h 127.0.0.1 -tAc "SELECT 1 FROM pg_database WHERE datname='clipkita'")
+  $dbExists = (& $psql -U postgres -h 127.0.0.1 -tAc "SELECT 1 FROM pg_database WHERE datname='clipkita_pro'")
   if (-not ($dbExists -match "1")) {
-    & $psql -U postgres -h 127.0.0.1 -qc "CREATE DATABASE clipkita OWNER clipkita;"
+    & $psql -U postgres -h 127.0.0.1 -qc "CREATE DATABASE clipkita_pro OWNER clipkita;"
     if ($LASTEXITCODE -ne 0) { Fail "Could not create the database." }
   }
   Remove-Item Env:\PGPASSWORD
@@ -109,19 +109,20 @@ if (Test-Path $envFile) {
   $ownerPass = RandomPassword
   $rootFwd = $Root -replace "\\", "/"
   $content = @"
-DATABASE_URL=postgresql://clipkita:$dbPass@127.0.0.1:5432/clipkita
-APP_URL=http://localhost:3000
-STORAGE_DIR=$rootFwd/storage
-SECRET_KEY=$(RandomHex 32)
-OWNER_EMAIL=ADMIN16112000@gmail.com
-OWNER_USERNAME=ADMINPRO16112000
-OWNER_INITIAL_PASSWORD=$ownerPass
-WHISPER_MODEL=small
-WHISPER_PYTHON=$rootFwd/.venv/Scripts/python.exe
-WHISPER_LANGUAGE=id
-FFMPEG_PATH=C:/ffmpeg/bin/ffmpeg.exe
-FFPROBE_PATH=C:/ffmpeg/bin/ffprobe.exe
-MAX_UPLOAD_MB=500
+DATABASE_URL=postgresql://clipkita:$dbPass@127.0.0.1:5432/clipkita_pro
+CKP_APP_URL=http://localhost:3000
+CKP_STORAGE_DIR=$rootFwd/storage
+CKP_SECRET_KEY=$(RandomHex 32)
+CKP_OWNER_EMAIL=ADMIN16112000@gmail.com
+CKP_OWNER_USERNAME=ADMINPRO16112000
+CKP_OWNER_NAME=Muhammad Fasni Mubarok
+CKP_OWNER_INITIAL_PASSWORD=$ownerPass
+CKP_WHISPER_MODEL=small
+CKP_WHISPER_PYTHON=$rootFwd/.venv/Scripts/python.exe
+CKP_WHISPER_LANGUAGE=id
+CKP_FFMPEG_PATH=C:/ffmpeg/bin/ffmpeg.exe
+CKP_FFPROBE_PATH=C:/ffmpeg/bin/ffprobe.exe
+CKP_MAX_UPLOAD_MB=500
 "@
   # UTF-8 without BOM, otherwise the first variable name is unreadable
   [IO.File]::WriteAllText($envFile, $content, (New-Object System.Text.UTF8Encoding $false))
@@ -163,7 +164,7 @@ if ($LASTEXITCODE -ne 0) { Fail "Build failed. Copy the error above and send it.
 Ok "build complete"
 
 Write-Host ""
-Write-Host "Setup finished. Start ClipKita with:" -ForegroundColor Green
+Write-Host "Setup finished. Start ClipKita-Pro with:" -ForegroundColor Green
 Write-Host "  powershell -ExecutionPolicy Bypass -File $Root\scripts\start-windows.ps1" -ForegroundColor Green
 Write-Host "Then open http://localhost:3000"
 Read-Host "Press Enter to close"

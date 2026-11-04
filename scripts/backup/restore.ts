@@ -1,5 +1,5 @@
 /**
- * ClipKita restore / recovery test. Never touches the live project or database.
+ * ClipKita-Pro restore / recovery test. Never touches the live project or database.
  *
  *   npm run backup:restore -- --from <backup folder> --verify-only
  *   npm run backup:restore -- --from <backup folder> --to <new empty folder> [--db <new database name>]
@@ -7,6 +7,7 @@
  * Needs: the backup key file (BACKUP_KEY_FILE), DATABASE_URL credentials of a role that may create
  * databases (the new database is created next to the live one with a different name), git-free tar.
  */
+import "../../src/lib/env-alias";
 import { existsSync, readdirSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";

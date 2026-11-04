@@ -1,4 +1,4 @@
-# CLIPKITA AI PRO MAX
+# ClipKita-Pro
 
 Platform clipping dan editing video: upload video atau tempel link, server mentranskripsi audio dengan Whisper, mengusulkan klip berbasis kalimat utuh, membuat subtitle karaoke yang sinkron per kata, lalu merender MP4 H.264/AAC 1080×1920 yang diverifikasi dengan ffprobe.
 
@@ -80,6 +80,22 @@ npm run backup:restore -- --from <folder backup> --to <folder baru kosong>
 ```
 
 Restore selalu ke folder baru dan database baru (`clipkita_restore_<waktu>`), memeriksa checksum dan kunci sebelum menulis apa pun, lalu membandingkan jumlah baris. Project dan database aktif tidak pernah disentuh. Lihat `scripts/backup/RECOVERY.md`.
+
+## Pindah ke nama baru (instalasi lama)
+
+`.env` lama tetap berjalan tanpa perubahan. Untuk memakai nama baru:
+
+1. Ganti nama variabel menjadi berawalan `CKP_` (contoh `SECRET_KEY` menjadi `CKP_SECRET_KEY`). Bila keduanya ada, `CKP_` yang dipakai. `DATABASE_URL` tidak diganti.
+2. Pindahkan database ke `clipkita_pro` tanpa menyentuh database lama:
+
+```bash
+npm run backup
+```
+```bash
+npm run backup:restore -- --from "C:\CLIPKITA_BACKUP\<folder-terbaru>" --to "C:\clipkita-pro-restore-check" --db clipkita_pro
+```
+
+   Setelah `RESTORE OK`, ubah akhir `DATABASE_URL` di `.env` dari `/clipkita` menjadi `/clipkita_pro`, lalu jalankan aplikasi. Database lama `clipkita` tetap ada sebagai cadangan sampai Anda menghapusnya sendiri.
 
 ## Token
 

@@ -170,9 +170,6 @@ export function AiPanel({ doc, clipId, sourceId, score, reasons, hashtags, silen
         <p>High-pass at 70 Hz and loudness normalisation to −14 LUFS are applied to every render.</p>
       </Tool>
 
-      <Tool title="AI Script" tag="not available">
-        <p>Writing new script text needs a language-model provider, which is not configured on this server. Nothing will be invented in its place.</p>
-      </Tool>
     </div>
   );
 }

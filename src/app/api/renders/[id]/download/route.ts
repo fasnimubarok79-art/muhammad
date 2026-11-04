@@ -35,7 +35,7 @@ export const GET = authedRoute<P>(
     const job = await completedJob(user.id, params.id);
     const paid = await db.tokenTransaction.findUnique({ where: { userId_idempotencyKey: { userId: user.id, idempotencyKey: `download:${job.id}` } } });
     if (!paid) throw new ApiError(402, "PAYMENT_REQUIRED", "Confirm the download first", { cost: downloadCost(user.role) });
-    return streamFile(req, keyPath(job.outputKey!), "video/mp4", `clipkita-${job.id}.mp4`);
+    return streamFile(req, keyPath(job.outputKey!), "video/mp4", `clipkita-pro-${job.id}.mp4`);
   },
   { rate: RATE.read, rateKey: "download-get" },
 );

@@ -179,7 +179,7 @@ function requestPinned(target: ResolvedTarget, method: string, timeoutMs: number
       {
         method,
         lookup: pinned,
-        headers: { "User-Agent": "ClipKitaBot/1.0 (+media-import)", Accept: "*/*", ...headers },
+        headers: { "User-Agent": "ClipKitaPro/1.0 (+media-import)", Accept: "*/*", ...headers },
         timeout: timeoutMs,
       },
       resolve,

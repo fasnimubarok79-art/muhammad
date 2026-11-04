@@ -1,4 +1,4 @@
-# DESIGN.md · CLIPKITA AI PRO MAX
+# DESIGN.md · ClipKita-Pro
 
 Direction for every UI in this project. Agents read this first, then apply the `antislop` skill as the filter.
 

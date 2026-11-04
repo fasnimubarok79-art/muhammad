@@ -1,3 +1,4 @@
+import "./env-alias";
 import { z } from "zod";
 
 const schema = z.object({
@@ -7,6 +8,7 @@ const schema = z.object({
   SECRET_KEY: z.string().min(32, "SECRET_KEY must be at least 32 chars"),
   OWNER_EMAIL: z.string().email().default("ADMIN16112000@gmail.com"),
   OWNER_INITIAL_PASSWORD: z.string().optional(),
+  OWNER_NAME: z.string().max(80).optional(),
   OWNER_USERNAME: z.string().regex(/^[A-Za-z0-9_.-]{3,40}$/).default("ADMINPRO16112000"),
   WHISPER_MODEL: z.string().default("small"),
   WHISPER_PYTHON: z.string().default("python3"),

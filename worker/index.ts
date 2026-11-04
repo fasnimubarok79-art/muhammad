@@ -1,3 +1,4 @@
+import "../src/lib/env-alias";
 import os from "node:os";
 import { db } from "../src/lib/db";
 import { env } from "../src/lib/env";

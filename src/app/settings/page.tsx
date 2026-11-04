@@ -78,7 +78,6 @@ export default function Settings() {
         <section className="card p-5" aria-labelledby="ai-h">
           <h2 id="ai-h" className="text-[18px] font-bold">AI dan layanan</h2>
           <p className="mt-2 text-[13px] text-muted">Status Whisper, FFmpeg, worker dan database ada di Dashboard → Service status. Model, bahasa transkripsi dan batas ukuran diatur di file <code>.env</code> server (lihat README).</p>
-          <p className="mt-2 text-[13px] text-warn">Penyedia LLM untuk judul/skrip generatif: NEED CONFIGURATION (belum ada).</p>
         </section>
       </div>
     </AppShell>
