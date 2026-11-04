@@ -79,13 +79,13 @@ Legend: DONE (implemented and tested), PARTIAL, MISSING, CONFLICT (differs from 
 | Style reference video (YouTube Short) | NOT VIEWED | Cannot be watched from here; nothing in `docs/reference/` yet |
 | Pinterest reference engine, AI style matching, live video import, backup/failover addendum | SPEC MISSING | Headings only. Note: Pinterest content is only usable through its official API with app approval |
 
-## Blocking decisions (owner)
+## Owner decisions (2026-11-04)
 
-1. Architecture: keep the working Next.js + Node worker + PostgreSQL queue, or migrate to FastAPI + Python worker + Redis + MinIO (a rewrite).
-2. YouTube: keep yt-dlp link import (current), or switch to official-only (metadata API + upload), as the new prompt says.
-3. Rebrand of env prefix (`CKP_`) and database name (`clipkita_pro`) on the owner's laptop.
-4. Plans and payments: replace or keep the token system (spec sections are empty).
-5. The missing text of the master prompt.
+1. Architecture: **keep** Next.js + Node worker + PostgreSQL queue. Add Redis/FastAPI only when a feature needs it.
+2. YouTube: **keep yt-dlp** link import with the rights checkbox (overrides the prompt's official-only rule).
+3. Rebrand: **gradual**. Display name now; `CKP_` env names read first with the old names still accepted; database moved to `clipkita_pro` through the tested backup and restore when the owner runs it.
+4. Billing: **keep the token system**. Plans and payments wait for a written spec.
+5. Still open: the missing text of the master prompt (sections listed above as SPEC MISSING).
 
 ## Technical debt
 
