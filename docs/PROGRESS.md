@@ -39,7 +39,7 @@ Legend: DONE (implemented and tested), PARTIAL, MISSING, CONFLICT (differs from 
 
 | Prompt item | Status | Notes |
 |---|---|---|
-| Rebrand to ClipKita-Pro, slug `clipkita-pro` | DONE | Title, wordmark, package, Docker, scripts, docs. `git grep -i -E "clipgen|clipforge|clip\.kita"` returns nothing outside CHANGELOG.md |
+| Rebrand to ClipKita-Pro, slug `clipkita-pro` | DONE | Title, wordmark, package, Docker, scripts, docs. the rebrand search from the master prompt returns nothing outside CHANGELOG.md |
 | Env prefix `CKP_` | DONE | `src/lib/env-alias.ts`: CKP_ wins, old names still work; `DATABASE_URL` unchanged on purpose. Verified with a CKP_-only env file |
 | Database name `clipkita_pro` | PARTIAL | New installs create `clipkita_pro`. Existing installs: documented move via backup + restore (README), to be run by the owner |
 | Owner role via seed/CLI only, unlimited | DONE | Owner display name "Muhammad Fasni Mubarok" set by seed (`CKP_OWNER_NAME`) |
