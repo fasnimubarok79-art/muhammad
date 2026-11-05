@@ -341,7 +341,16 @@ function Studio({ clipId }: { clipId: string }) {
     if (tab === "text") return <InsertPanel kind="text" onText={addText} onEffect={addEffect} />;
     if (tab === "subs") return subsEl;
     if (tab === "transcript") return <TranscriptEditor doc={doc} time={clipTime} clipLen={clipLen} onSegments={setSegments} onSeek={seekClip} />;
-    if (tab === "effects") return <EffectControls style={doc.config.style} onStyle={(s) => setConfig({ style: { ...doc.config.style, ...s } })} />;
+    if (tab === "effects") return (
+      <EffectControls
+        style={doc.config.style}
+        onStyle={(s) => setConfig({ style: { ...doc.config.style, ...s } })}
+        bgColor={doc.config.bgColor ?? "#000000"}
+        onBgColor={(v) => setConfig({ bgColor: v })}
+        watermark={doc.config.watermark}
+        onWatermark={(v) => setConfig({ watermark: v ?? undefined })}
+      />
+    );
     if (tab === "cards") return cardsEl;
     return (
       <AiPanel doc={doc} clipId={clipId} sourceId={data.source.id} score={data.clip.score} reasons={data.clip.scoreReasons ?? []} hashtags={data.suggestions.hashtags} srcSize={srcSize} onDoc={setDoc} onConfig={setConfig} onCaptionsRegenerated={load} onFollowFace={() => { setConfig({ framing: "follow" }); if (face.state !== "ready" && face.state !== "detecting") void detectFaces(); }} length={length} silenceSec={silenceSec} onCutSilences={cutSilences} onReferenceStyle={applyReference} />

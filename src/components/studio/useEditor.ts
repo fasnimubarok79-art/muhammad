@@ -20,13 +20,15 @@ export type Config = {
   trimEnd: number;
   style: Style;
   cards: WordCard[];
+  bgColor?: string; // fill colour for empty areas in Fit+blur / Bars framing
+  watermark?: { input: number; x: number; y: number; scale: number; opacity: number }; // overlay drawn over the render
 };
 export type Doc = { title: string; description: string; segments: Seg[]; config: Config; timeline: TimelineDoc };
 export type SaveState = "saved" | "dirty" | "saving" | "error" | "conflict";
 
 export const DEFAULT_STYLE: Style = { preset: "karaoke", fontSize: 84, primary: "#FFFFFF", highlight: "#FF7A1A", outline: 7, shadow: 3, marginV: 540, popScale: 1.0 };
 export const defaultConfig = (len: number): Config => ({
-  preset: "viral_short", aspect: "9:16", resolution: "1080p", framing: "blur", cropX: 0.5, removeSilence: false, burnSubtitles: true, trimStart: 0, trimEnd: len, style: DEFAULT_STYLE, cards: [],
+  preset: "viral_short", aspect: "9:16", resolution: "1080p", framing: "blur", cropX: 0.5, removeSilence: false, burnSubtitles: true, trimStart: 0, trimEnd: len, style: DEFAULT_STYLE, cards: [], bgColor: "#000000", watermark: undefined,
 });
 
 const LIMIT = 50;

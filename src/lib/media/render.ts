@@ -134,6 +134,11 @@ export type AudioLayer = { input: number; start: number; at: number; dur: number
 
 export type EffectRange = { type: "zoom" | "flash" | "bw" | "blur"; start: number; end: number; intensity: number };
 
+/** Watermark image layer drawn over the entire render. */
+export type WatermarkLayer = {
+  input: number; x: number; y: number; scale: number; opacity: number;
+};
+
 export type RenderPlan = {
   aspect: Aspect;
   resolution: Resolution;
@@ -145,12 +150,15 @@ export type RenderPlan = {
   fontsDir?: string;
   output: string;
   fps?: number;
+  // background styling for fit+blur framing
+  bgColor?: string; // #RRGGBB fill for empty areas when framing is blur/pad
   // multi-track timeline
   inputs?: RenderInput[];
   segments?: MainSegment[];
   overlays?: OverlayLayer[];
   audios?: AudioLayer[];
   effects?: EffectRange[];
+  watermarks?: WatermarkLayer[]; // drawn over everything below text
   // single clip (jobs queued before the timeline existed): one input, kept intervals
   input?: string;
   clipStart?: number;
@@ -216,7 +224,7 @@ export function buildRenderArgs(p: RenderPlan): string[] {
       } else if (p.framing === "crop") {
         chains.push(`[c${k}]${cover},crop=${OW}:${OH}:x='(in_w-out_w)*${f(Math.min(1, Math.max(0, p.cropX)))}':y='(in_h-out_h)/2'[f${k}]`);
       } else if (p.framing === "pad") {
-        chains.push(`[c${k}]${contain},pad=${OW}:${OH}:(ow-iw)/2:(oh-ih)/2:color=black[f${k}]`);
+        chains.push(`[c${k}]${contain},pad=${OW}:${OH}:(ow-iw)/2:(oh-ih)/2:color=${p.bgColor ?? "black"}[f${k}]`);
       } else {
         chains.push(`[c${k}]split=2[bgsrc${k}][fgsrc${k}]`);
         const grid = p.preset.bgGrid ? `,drawgrid=w=${Math.round(OW / 9)}:h=${Math.round(OW / 9)}:t=1:c=white@0.09` : "";
@@ -304,6 +312,17 @@ export function buildRenderArgs(p: RenderPlan): string[] {
     const y = o.exprs?.y ?? f(o.y);
     chains.push(`[${base}][o${k}]overlay=x='(${x})*W-w/2':y='(${y})*H-h/2':eval=frame:eof_action=pass:enable='between(t,${f(o.at)},${f(o.at + o.dur)})'[b${k}]`);
     base = `b${k}`;
+  });
+
+  // watermarks drawn over everything below text
+  (p.watermarks ?? []).forEach((wm, k) => {
+    chains.push(
+      `[${wm.input}:v]trim=duration=${f(dur)},setpts=PTS-STARTPTS,scale=iw*${f(wm.scale)}:ih*${f(wm.scale)}:eval=frame,format=rgba,colorchannelmixer=aa=${f(wm.opacity)}[wm${k}]`,
+    );
+    chains.push(
+      `[${base}][wm${k}]overlay=x='(${f(wm.x)})*W-w':y='(${f(wm.y)})*H-h':eval=frame:eof_action=pass[wmout${k}]`,
+    );
+    base = `wmout${k}`;
   });
 
   // 4. effects over everything below the text, then fades, burned-in text and the output format

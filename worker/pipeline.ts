@@ -14,7 +14,7 @@ import { buildYtDlpArgs, parseYtDlpOutput, parseYtDlpProgress, SOCIAL_PLATFORMS,
 import { readdir, rename } from "node:fs/promises";
 import { run, ProcessError } from "../src/lib/media/exec";
 import { displaySize, probe } from "../src/lib/media/probe";
-import { auditOutput, type QualityReport } from "../src/lib/media/qc";
+import { auditOutput, autoFixOutput, type AutoFixResult, type QualityReport } from "../src/lib/media/qc";
 import { FEATURES } from "../config/features";
 import { parseScenes, parseSilences, proposeClips, type Interval } from "../src/lib/media/clipping";
 import { buildSegments, DEFAULT_STYLE, HORMOZI_STYLE, IMPACT_STYLE, PUNCH_STYLE, sliceWords, toAss, type Segment, type SubtitleStyle, type Word } from "../src/lib/media/subtitles";
@@ -308,6 +308,8 @@ export type RenderParams = {
   trimStart?: number; // clip-relative seconds
   trimEnd?: number;
   cards?: WordCard[];
+  bgColor?: string; // fill colour for empty areas in Fit+blur / Bars framing
+  watermark?: { input: number; x: number; y: number; scale: number; opacity: number }; // overlay drawn over the render
 };
 
 export async function render(ctx: Ctx) {
@@ -427,11 +429,13 @@ export async function render(ctx: Ctx) {
       overlays: plan.overlays,
       audios: plan.audios,
       effects: plan.effects,
+      watermarks: params.watermark ? [params.watermark] : undefined,
       fps: doc.fps,
       aspect: params.aspect,
       resolution: params.resolution,
       framing: params.framing,
       cropX: params.cropX,
+      bgColor: params.bgColor,
       punchIntervals,
       preset,
       assPath,
@@ -488,6 +492,72 @@ export async function render(ctx: Ctx) {
       if (quality && quality.metrics.decodeErrors.length > 0) {
         await rm(outFile, { force: true });
         throw new JobFailure("Output failed the full decode check");
+      }
+
+      // Auto-fix: attempt to repair common QC problems by re-encoding.
+      if (FEATURES.qualityAudit && quality) {
+        const needsFix =
+          quality.checks.some((c) => c.id === "technical" && c.score < 25) ||
+          quality.checks.some((c) => c.id === "loudness" && c.score < 17) ||
+          quality.checks.some((c) => c.id === "alignment" && c.score < 15);
+        if (needsFix) {
+          await setProgress(job.id, 97);
+          let fixed: AutoFixResult | null = null;
+          try {
+            fixed = await autoFixOutput({
+              ffmpeg: ffmpeg(),
+              file: outFile,
+              probe: out,
+              expected: expect,
+              report: quality,
+              timeoutMs: env().JOB_TIMEOUT_MIN * 60_000,
+              signal: ctx.signal,
+            });
+          } catch (e) {
+            console.error("[worker] auto-fix failed", e instanceof Error ? e.message : e);
+          }
+          if (fixed && fixed.applied.length > 0 && fixed.file !== outFile) {
+            // Re-probe and re-verify the fixed file before replacing the output.
+            try {
+              const outFixed = await probe(ffprobe(), fixed.file);
+              const checkFixed = verifyOutput(outFixed, expect);
+              if (checkFixed.ok) {
+                await rm(outFile, { force: true });
+                await rename(fixed.file, outFile);
+                // Re-audit the fixed file so the stored report reflects the fix.
+                try {
+                  quality = await auditOutput({
+                    ffmpeg: ffmpeg(),
+                    file: outFile,
+                    probe: outFixed,
+                    expected: expect,
+                    timeoutMs: env().JOB_TIMEOUT_MIN * 60_000,
+                    signal: ctx.signal,
+                  });
+                } catch (e) {
+                  console.error("[worker] re-audit after auto-fix failed", e instanceof Error ? e.message : e);
+                }
+              } else {
+                await rm(fixed.file, { force: true });
+              }
+            } catch (e) {
+              console.error("[worker] re-probe after auto-fix failed", e instanceof Error ? e.message : e);
+            }
+          }
+          // Clean up any leftover autofix temp files.
+          const workDir = path.dirname(outFile);
+          const fixedBase = fixed?.file ? path.basename(fixed.file) : "";
+          try {
+            const entries = await readdir(workDir);
+            for (const entry of entries) {
+              if (entry.startsWith(path.basename(outFile, ".mp4") + "-autofix-") && entry !== fixedBase) {
+                await rm(path.join(workDir, entry), { force: true });
+              }
+            }
+          } catch {
+            // best-effort cleanup
+          }
+        }
       }
     }
 
