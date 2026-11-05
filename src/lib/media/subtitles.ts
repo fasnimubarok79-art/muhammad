@@ -109,7 +109,7 @@ export function parseCaptions(text: string): Segment[] {
 // ---------- ASS (burned-in) ----------
 
 export type SubtitleStyle = {
-  preset: "karaoke" | "clean" | "pop" | "impact";
+  preset: "karaoke" | "clean" | "pop" | "impact" | "punch";
   fontName: string;
   fontSize: number; // at PlayResY
   primary: string; // #RRGGBB
@@ -122,6 +122,36 @@ export type SubtitleStyle = {
 
 /** "Impact": huge centred captions, yellow active word, heavy stroke, sharp shadow (short-form style). */
 export const IMPACT_STYLE: Partial<SubtitleStyle> = { preset: "impact", fontSize: 108, highlight: "#FFD21F", outline: 10, shadow: 5, marginV: 840, maxCharsPerLine: 14 };
+
+/**
+ * "Punch": small white context words above ONE big, upper-case, italic keyword in a rotating accent
+ * colour with a soft glow; the keyword pops in when it is spoken (short-form podcast style).
+ */
+export const PUNCH_STYLE: Partial<SubtitleStyle> = { preset: "punch", fontSize: 62, outline: 6, shadow: 3, marginV: 640, maxCharsPerLine: 22 };
+export const PUNCH_COLORS = ["#3FA9FF", "#FF3B3B", "#3DDC72", "#FFD21F"];
+export const PUNCH_KEYWORD_SCALE = 1.9;
+
+const KEY_STOP = new Set(
+  (
+    "yang dan di ke dari ini itu dengan untuk pada adalah atau juga tidak akan sudah saya kamu kita kami mereka dia ada bisa jadi karena tapi kalau lagi aja nya sih kan dong ya gua gue lo lu aku " +
+    "kok deh lah pun para oleh sama udah belum masih harus mau buat bikin kayak gitu gini sebuah satu banyak lebih sangat " +
+    "the and a an of to in on is are was were it this that you we they i for can do does did not no so as at be by with your my our their his her what who how when where why just also very really"
+  ).split(" "),
+);
+
+/** Index of the word to emphasise: the longest non-filler word (ties: the later one). */
+export function keywordIndex(words: Array<{ w: string }>): number {
+  let best = -1;
+  let len = 0;
+  words.forEach((w, i) => {
+    const clean = w.w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+    if (clean.length >= 3 && !KEY_STOP.has(clean) && clean.length >= len) {
+      best = i;
+      len = clean.length;
+    }
+  });
+  return best >= 0 ? best : Math.max(0, words.length - 1);
+}
 
 export const DEFAULT_STYLE: SubtitleStyle = {
   preset: "karaoke",
@@ -158,6 +188,7 @@ function assTime(sec: number) {
  * switches exactly at the word timestamps from the transcript.
  */
 export function toAss(segs: Segment[], style: SubtitleStyle, play = { w: 1080, h: 1920 }) {
+  let punchIdx = 0;
   const header = [
     "[Script Info]",
     "ScriptType: v4.00+",
@@ -190,6 +221,21 @@ export function toAss(segs: Segment[], style: SubtitleStyle, play = { w: 1080, h
           return `${sep}{\\c${hl}${pop}\\blur0.6}${t}{\\r}`;
         })
         .join("");
+    if (style.preset === "punch") {
+      // two events: context words alone until the keyword is spoken, then context + big keyword popping in
+      const k = keywordIndex(words);
+      const ctx = words.filter((_, i) => i !== k).map((w) => assText(w.w)).join(" ");
+      const kwText = assText(words[k].w.replace(/[.,!?;:…]+$/, "").toUpperCase());
+      const color = PUNCH_COLORS[punchIdx++ % PUNCH_COLORS.length];
+      const big = Math.round(style.fontSize * PUNCH_KEYWORD_SCALE);
+      const kwStart = Math.max(seg.start, Math.min(words[k].s, seg.end - 0.05));
+      const glow = `{\\fs${big}\\i1\\bord${Math.round(style.outline * 2.2)}\\3c${assColor(color)}\\3a&H30&\\blur10\\1a&HFF&\\shad0}${kwText}`;
+      const kw = `{\\fs${big}\\i1\\c${assColor(color)}\\3c&H000000&\\fscx135\\fscy135\\t(0,110,\\fscx100\\fscy100)}${kwText}`;
+      if (kwStart - seg.start > 0.05 && ctx) events.push(`Dialogue: 1,${assTime(seg.start)},${assTime(kwStart)},Main,,0,0,0,,${ctx}`);
+      events.push(`Dialogue: 0,${assTime(kwStart)},${assTime(seg.end)},Main,,0,0,0,,${ctx ? "{\\alpha&HFF&}" + ctx + "\\N" : ""}${glow}`);
+      events.push(`Dialogue: 1,${assTime(kwStart)},${assTime(seg.end)},Main,,0,0,0,,${ctx ? ctx + "\\N" : ""}${kw}`);
+      continue;
+    }
     if (style.preset === "clean") {
       events.push(`Dialogue: 0,${assTime(seg.start)},${assTime(seg.end)},Main,,0,0,0,,${render(-1)}`);
       continue;

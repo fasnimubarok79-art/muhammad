@@ -3,13 +3,13 @@ import type { Word } from "./subtitles";
 
 export type Aspect = "9:16" | "16:9" | "1:1";
 export type Framing = "blur" | "crop" | "pad" | "follow";
-export type PresetId = "cinematic_podcast" | "viral_short" | "viral_spotlight" | "educational" | "storytelling" | "clean_professional";
+export type PresetId = "cinematic_punch" | "cinematic_podcast" | "viral_short" | "viral_spotlight" | "educational" | "storytelling" | "clean_professional";
 export type Resolution = "450p" | "720p" | "1080p";
 
 export type Preset = {
   id: PresetId;
   label: string;
-  subtitle: "karaoke" | "pop" | "clean" | "impact";
+  subtitle: "karaoke" | "pop" | "clean" | "impact" | "punch";
   zoom: number; // total zoom gained over the clip, 0 = none
   eq: { contrast: number; saturation: number; brightness: number; gamma: number };
   warm: number; // 0..0.1 colour balance toward warm highlights
@@ -18,6 +18,8 @@ export type Preset = {
   vignette?: boolean; // darken the edges of the final frame
   bgGrid?: boolean; // fit+blur: faint grid on the blurred background
   frameGlow?: boolean; // fit+blur: soft orange glow and thin outline around the video frame
+  punchScale?: number; // hard punch-in zoom (e.g. 1.3) on alternating shots, switched on cut points
+  flash?: boolean; // short brightness flash on each punch cut
 };
 
 export const PRESETS: Record<PresetId, Preset> = {
@@ -25,9 +27,35 @@ export const PRESETS: Record<PresetId, Preset> = {
   viral_short: { id: "viral_short", label: "Viral Short", subtitle: "karaoke", zoom: 0.1, eq: { contrast: 1.1, saturation: 1.15, brightness: 0.01, gamma: 1 }, warm: 0.02, sharpen: 0.45, fade: 0.2 },
   educational: { id: "educational", label: "Educational", subtitle: "clean", zoom: 0, eq: { contrast: 1.02, saturation: 1.0, brightness: 0.01, gamma: 1 }, warm: 0, sharpen: 0.3, fade: 0.25 },
   storytelling: { id: "storytelling", label: "Storytelling", subtitle: "karaoke", zoom: 0.06, eq: { contrast: 1.05, saturation: 0.95, brightness: -0.01, gamma: 0.97 }, warm: 0.05, sharpen: 0.3, fade: 0.5 },
+  cinematic_punch: { id: "cinematic_punch", label: "Cinematic Punch", subtitle: "punch", zoom: 0.04, eq: { contrast: 1.16, saturation: 1.06, brightness: -0.02, gamma: 0.94 }, warm: 0.06, sharpen: 0.45, fade: 0.15, vignette: true, punchScale: 1.3, flash: true },
   viral_spotlight: { id: "viral_spotlight", label: "Viral Spotlight", subtitle: "impact", zoom: 0.12, eq: { contrast: 1.12, saturation: 1.12, brightness: 0, gamma: 0.98 }, warm: 0.04, sharpen: 0.4, fade: 0.2, vignette: true, bgGrid: true, frameGlow: true },
   clean_professional: { id: "clean_professional", label: "Clean Professional", subtitle: "clean", zoom: 0, eq: { contrast: 1.0, saturation: 1.0, brightness: 0, gamma: 1 }, warm: 0, sharpen: 0, fade: 0.2 },
 };
+
+/**
+ * Alternate wide and punched-in shots on sentence/segment starts, like a two-camera podcast edit:
+ * a shot change at most every `minGap` seconds, a punched shot never longer than `maxHold`.
+ */
+export function punchPlan(segmentStarts: number[], dur: number, minGap = 1.6, maxHold = 3.2): Interval[] {
+  const starts = [...segmentStarts, dur].filter((t) => t >= 0 && t <= dur).sort((a, b) => a - b);
+  const out: Interval[] = [];
+  let last = 0;
+  let zoomed = false;
+  let zoomStart = 0;
+  for (const t of starts) {
+    if (t - last < minGap) continue;
+    if (zoomed) {
+      out.push({ start: zoomStart, end: Math.min(t, zoomStart + maxHold) });
+      zoomed = false;
+    } else if (t < dur - minGap) {
+      zoomed = true;
+      zoomStart = t;
+    }
+    last = t;
+  }
+  if (zoomed) out.push({ start: zoomStart, end: Math.min(dur, zoomStart + maxHold) });
+  return out.filter((iv) => iv.end - iv.start > 0.5);
+}
 
 export function outputSize(aspect: Aspect, res: Resolution) {
   const short = res === "1080p" ? 1080 : res === "720p" ? 720 : 450;
@@ -91,6 +119,7 @@ export type RenderPlan = {
   framing: Framing;
   cropX: number; // 0..1 horizontal focus for crop framing
   focusExpr?: string; // follow framing: FFmpeg expression of the subject centre (0..1) over output time t
+  punchIntervals?: Interval[]; // output-time intervals shown punched in (preset.punchScale)
   preset: Preset;
   keep: Interval[]; // clip-relative intervals to keep (whole clip when no silence removal)
   assPath?: string;
@@ -156,8 +185,11 @@ export function buildRenderArgs(p: RenderPlan): string[] {
 
   // 3. look: slow zoom, grade, sharpen, fades, subtitles, pixel format
   const look: string[] = [];
-  if (p.preset.zoom > 0 && dur > 0) {
-    const z = `(1+${f(p.preset.zoom)}*t/${f(dur)})`;
+  const punches = p.preset.punchScale && p.punchIntervals?.length ? p.punchIntervals : [];
+  if ((p.preset.zoom > 0 || punches.length) && dur > 0) {
+    const on = punches.map((iv) => `between(t,${f(iv.start)},${f(iv.end)})`).join("+");
+    const punch = punches.length ? `*(1+${f(p.preset.punchScale! - 1)}*min(1,${on}))` : "";
+    const z = `(1+${f(p.preset.zoom)}*t/${f(dur)})${punch}`;
     look.push(`scale=w='2*trunc(${OW}*${z}/2)':h='2*trunc(${OH}*${z}/2)':eval=frame`, `crop=${OW}:${OH}`);
   }
   const e = p.preset.eq;
@@ -165,6 +197,11 @@ export function buildRenderArgs(p: RenderPlan): string[] {
   if (p.preset.warm > 0) look.push(`colorbalance=rh=${f(p.preset.warm)}:bh=${f(-p.preset.warm)}`);
   if (p.preset.sharpen > 0) look.push(`unsharp=5:5:${f(p.preset.sharpen)}:5:5:0`);
   if (p.preset.vignette && p.framing !== "blur") look.push("vignette=angle=PI/4.5");
+  if (p.preset.flash && punches.length) {
+    // a 2-frame brightness flash at every punch in and out
+    const cuts = punches.flatMap((iv) => [iv.start, iv.end]).filter((c) => c > 0.05 && c < dur - 0.05);
+    if (cuts.length) look.push(`eq=brightness='0.22*min(1,${cuts.map((c) => `between(t,${f(c)},${f(c + 0.07)})`).join("+")})':eval=frame`);
+  }
   const fade = Math.min(p.preset.fade, dur / 4);
   if (fade > 0) look.push(`fade=t=in:st=0:d=${f(fade)}`, `fade=t=out:st=${f(Math.max(0, dur - fade))}:d=${f(fade)}`);
   if (p.assPath) look.push(`ass=filename='${filterPath(p.assPath)}'${p.fontsDir ? `:fontsdir='${filterPath(p.fontsDir)}'` : ""}`);

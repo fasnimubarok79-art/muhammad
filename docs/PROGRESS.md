@@ -4,10 +4,10 @@ Read this first at the start of every session. One phase per session.
 
 ## Current phase
 
-**Phase 1: rebrand + feature flags.** Done and merged to `main`.
-**Next: Phase 2** (proposed): audit report page (topics, moment map from stored silences/scenes, source audio/video quality) and the "Cinematic Punch" preset once its spec text is provided.
+**Phase 2: Cinematic Punch preset** tuned to the owner's reference video. Done and merged to `main`. Notes: `docs/reference/cinematic-punch.md`.
+**Next: Phase 3** (proposed): audit report page (topics, moment map from stored silences/scenes, source audio/video quality), then word-card inserts for Cinematic Punch.
 
-Phases: 0 audit (done, `feat/clipkita-pro-phase-0`), 1 rebrand and flags (done, `feat/clipkita-pro-phase-1`).
+Phases: 0 audit (done, `feat/clipkita-pro-phase-0`), 1 rebrand and flags (done, `feat/clipkita-pro-phase-1`), 2 Cinematic Punch (done, `feat/clipkita-pro-phase-2`).
 
 ## Master prompt received
 
@@ -56,7 +56,7 @@ Legend: DONE (implemented and tested), PARTIAL, MISSING, CONFLICT (differs from 
 | 4. Background audit with live per-stage progress | PARTIAL | DB queue + polling; stages validate, download, analyze, transcribe, clip. No scene/face/LLM stage in analysis; no SSE |
 | 5. Audit report (topics, moment map, speakers, source quality) | MISSING | Silences and scenes are stored but not shown as a report; no diarization |
 | 6. 5 to 20 clips with title, hook, description, scores, reasons, transcript, platforms | DONE | Clip detection v2 |
-| 7. Presets Cinematic Punch, Clean Podcast, Edu Explainer | PARTIAL | Six other presets exist; "Cinematic Punch" spec in section 8 is missing |
+| 7. Presets Cinematic Punch, Clean Podcast, Edu Explainer | PARTIAL | Cinematic Punch done from the reference video (no word cards or B-roll yet). Clean Podcast and Edu Explainer map to the existing `cinematic_podcast` and `educational` presets |
 | 7. Reframe, animated captions, zoom, color grade, audio enhancement | DONE | Follow-face reframe, karaoke/pop/impact captions, zoom, grade, loudnorm |
 | 7. Transitions | MISSING | |
 | 8. Timeline editor: timestamps, trim, split, subtitle style, crop | DONE | |
@@ -72,12 +72,12 @@ Legend: DONE (implemented and tested), PARTIAL, MISSING, CONFLICT (differs from 
 | FFmpeg filtergraph from EDL in `apps/worker/ffmpeg/builder.py` | PARTIAL | Exists in TypeScript (`src/lib/media/render.ts`) with tests |
 | DoD: Playwright E2E for steps 1 to 11 | PARTIAL | API E2E (67 checks) in repo; browser checks only as dev scripts |
 | DoD: ffprobe + `ffmpeg -v error -f null` on exports | PARTIAL | ffprobe verification in every render; decode check not yet |
-| DoD: subtitle sync within 150 ms | MISSING (not measured) | |
+| DoD: subtitle sync within 150 ms | DONE (punch captions) | Burned-in measurement, worst offset 30 ms over 16 events. See `docs/reference/cinematic-punch.md` |
 | DoD: dead-button crawler test | MISSING | |
 | DoD: CI for typecheck, lint, tests, build | MISSING | Runs locally only |
 | DoD: Lighthouse ≥ 90 | MISSING (not measured) | |
 | `tests/fixtures/owner/` (git-ignored) for the owner's own video | DONE in this phase | Waiting for the owner's 3 to 10 minute Indonesian video |
-| Style reference video (YouTube Short) | NOT VIEWED | Cannot be watched from here; nothing in `docs/reference/` yet |
+| Style reference video | DONE | Owner uploaded it on 2026-11-05. Patterns in `docs/reference/cinematic-punch.md`; the file and its assets are not committed |
 | Pinterest reference engine, AI style matching, live video import, backup/failover addendum | SPEC MISSING | Headings only. Note: Pinterest content is only usable through its official API with app approval |
 
 ## Owner decisions (2026-11-04)
@@ -99,3 +99,4 @@ Legend: DONE (implemented and tested), PARTIAL, MISSING, CONFLICT (differs from 
 
 - 2026-11-04 Phase 0 audit written; branch created; `tests/fixtures/owner/` added and ignored.
 - 2026-11-04 Phase 1: rebrand, CKP_ env names, owner name, feature flags. Evidence: rebrand grep empty, 100 unit/integration tests, 67 API E2E checks, build, CKP_-only env run, browser check of 11 pages (no banned labels, no console errors).
+- 2026-11-05 Phase 2: Cinematic Punch preset (punch captions with keyword pop-in, punch-in zoom on sentence starts, flash cuts, warm grade), Studio preview and options. Evidence: subtitle sync worst 30 ms, real sample render passed ffprobe and full decode, `tests/punch.test.ts`, full verify suite.

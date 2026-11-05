@@ -4,6 +4,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { fmtTime } from "@/lib/client";
 import type { Config, Seg } from "./useEditor";
 import { cropFraction, focusAt, type Keyframe } from "@/lib/media/reframe";
+import { keywordIndex, PUNCH_COLORS, PUNCH_KEYWORD_SCALE } from "@/lib/media/subtitles";
 
 export type ClientTrack = { start: number; end: number; keyframes: Keyframe[]; sampled: number; withFace: number; detector: string };
 
@@ -136,6 +137,21 @@ export const Player = forwardRef<PlayerHandle, Props>(function Player({ sourceId
           />
           {sub && (
             <div className="pointer-events-none absolute inset-x-[7%] flex justify-center" style={{ bottom: `${bottomPct}%` }}>
+              {config.style.preset === "punch" ? (() => {
+                const k = keywordIndex(sub.seg.words);
+                const shown = sub.idx >= k || t >= sub.seg.words[k].s;
+                const color = PUNCH_COLORS[segments.indexOf(sub.seg) % PUNCH_COLORS.length];
+                return (
+                  <p className="sub-line" style={{ fontSize: `${fontPct}cqw`, color: config.style.primary, WebkitTextStrokeWidth: `${config.style.outline / 90}em` }}>
+                    {sub.seg.words.filter((_, i) => i !== k).map((w) => w.w).join(" ")}
+                    {shown && (
+                      <span className="sub-pop block italic" style={{ fontSize: `${PUNCH_KEYWORD_SCALE}em`, color, textShadow: `0 0 0.35em ${color}, 0 0.05em 0.08em rgb(0 0 0 / .6)` }}>
+                        {sub.seg.words[k].w.replace(/[.,!?;:…]+$/, "").toUpperCase()}
+                      </span>
+                    )}
+                  </p>
+                );
+              })() : (
               <p className="sub-line" style={{ fontSize: `${fontPct}cqw`, color: config.style.primary, ["--hl" as string]: config.style.highlight, WebkitTextStrokeWidth: `${config.style.outline / 90}em` }}>
                 {sub.seg.words.map((w, i) => (
                   <span key={i}>
@@ -144,6 +160,7 @@ export const Player = forwardRef<PlayerHandle, Props>(function Player({ sourceId
                   </span>
                 ))}
               </p>
+              )}
             </div>
           )}
           {safe && vertical && (

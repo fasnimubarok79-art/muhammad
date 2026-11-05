@@ -8,11 +8,13 @@ import { retext, retime, DEFAULT_STYLE, type Config, type Doc, type Seg, type St
 /** Style values a subtitle animation brings with it (Impact is big, centred and yellow). */
 export function styleFor(preset: Style["preset"], current: Style): Style {
   if (preset === "impact") return { ...current, preset, fontSize: 108, highlight: "#FFD21F", outline: 10, shadow: 5, marginV: 840 };
-  if (current.preset === "impact") return { ...current, preset, fontSize: DEFAULT_STYLE.fontSize, highlight: DEFAULT_STYLE.highlight, outline: DEFAULT_STYLE.outline, shadow: DEFAULT_STYLE.shadow, marginV: DEFAULT_STYLE.marginV };
+  if (preset === "punch") return { ...current, preset, fontSize: 62, outline: 6, shadow: 3, marginV: 640 };
+  if (current.preset === "impact" || current.preset === "punch") return { ...current, preset, fontSize: DEFAULT_STYLE.fontSize, highlight: DEFAULT_STYLE.highlight, outline: DEFAULT_STYLE.outline, shadow: DEFAULT_STYLE.shadow, marginV: DEFAULT_STYLE.marginV };
   return { ...current, preset };
 }
 
 export const PRESET_INFO: Record<Config["preset"], { label: string; note: string; subtitle: Style["preset"] }> = {
+  cinematic_punch: { label: "Cinematic Punch", note: "Warm moody grade, punch-in zoom on sentence starts with a flash cut, big coloured keyword captions", subtitle: "punch" },
   cinematic_podcast: { label: "Cinematic Podcast", note: "Natural grade, subtle push-in, clean captions", subtitle: "clean" },
   viral_short: { label: "Viral Short", note: "Karaoke captions, punchier grade, slow zoom", subtitle: "karaoke" },
   viral_spotlight: { label: "Viral Spotlight", note: "Huge centred yellow captions, zoom-in, grid + vignette background, orange glow around the frame (with Fit+blur)", subtitle: "impact" },
@@ -102,7 +104,7 @@ export function Inspector({ doc, clipLen, onConfig, onDoc, face, onDetectFaces }
 
       <Group title="Subtitles">
         <label className="flex items-center gap-2"><input type="checkbox" className="accent-[#3DDC97]" checked={c.burnSubtitles} onChange={(e) => onConfig({ burnSubtitles: e.target.checked })} /> Burn subtitles into the video</label>
-        <Row label="Animation"><Seg3 label="Subtitle animation" value={c.style.preset} onChange={(v) => onConfig({ style: styleFor(v, c.style) })} options={[{ v: "karaoke", l: "Karaoke" }, { v: "pop", l: "Pop" }, { v: "impact", l: "Impact" }, { v: "clean", l: "Clean" }]} /></Row>
+        <Row label="Animation"><Seg3 label="Subtitle animation" value={c.style.preset} onChange={(v) => onConfig({ style: styleFor(v, c.style) })} options={[{ v: "punch", l: "Punch" }, { v: "karaoke", l: "Karaoke" }, { v: "pop", l: "Pop" }, { v: "impact", l: "Impact" }, { v: "clean", l: "Clean" }]} /></Row>
         <Row label="Size" htmlFor="i-fs"><input id="i-fs" type="range" min={48} max={140} value={c.style.fontSize} onChange={(e) => st({ fontSize: Number(e.target.value) })} className="w-full accent-[#FF7A1A]" /></Row>
         <Row label="Position" htmlFor="i-mv"><input id="i-mv" type="range" min={300} max={1500} step={10} value={c.style.marginV} onChange={(e) => st({ marginV: Number(e.target.value) })} className="w-full accent-[#FF7A1A]" aria-describedby="i-mv-h" /></Row>
         <p id="i-mv-h" className="-mt-1 text-[11px] text-faint">Distance from the bottom. Keep it above the bottom 21% safe zone.</p>

@@ -90,4 +90,21 @@ describe.skipIf(!enabled)("real video pipeline", () => {
     expect(info.audio?.codec).toBe("aac");
     console.log("[pipeline] render:", JSON.stringify({ key: done.outputKey, dur: info.durationSec, fps: info.video?.fps, meta: done.outputMeta }));
   }, 600_000);
+  it("renders the cinematic_punch preset (punch captions, punch-in zoom, flash) end to end", async () => {
+    const clip = await db.clip.findFirstOrThrow({ where: { sourceVideoId: sourceId }, orderBy: { score: "desc" } });
+    const job = await db.renderJob.create({
+      data: {
+        userId, projectId, clipId: clip.id, kind: "RENDER", status: "validating",
+        params: { resolution: "1080p", aspect: "9:16", framing: "blur", cropX: 0.5, preset: "cinematic_punch", removeSilence: false, burnSubtitles: true },
+      },
+    });
+    await runJob(job, new AbortController().signal);
+    const done = await db.renderJob.findUniqueOrThrow({ where: { id: job.id } });
+    expect(done.error).toBeNull();
+    expect(done.status).toBe("completed");
+    const info = await probe("ffprobe", keyPath(done.outputKey!));
+    expect(info.video?.width).toBe(1080);
+    expect(info.video?.height).toBe(1920);
+    expect(info.audio?.codec).toBe("aac");
+  }, 600_000);
 });
