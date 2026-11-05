@@ -13,6 +13,7 @@ import { ItemInspector } from "@/components/studio/ItemInspector";
 import { MediaPanel, type AddTarget } from "@/components/studio/MediaPanel";
 import { MultiTimeline } from "@/components/studio/MultiTimeline";
 import { Inspector, SubtitleList, type FaceStatus } from "@/components/studio/Panels";
+import { TranscriptEditor } from "@/components/studio/TranscriptEditor";
 import { TimelinePlayer, type ClientTrack, type PlayerHandle } from "@/components/studio/TimelinePlayer";
 import { defaultConfig, retime, useEditor, type Config, type Doc, type Seg } from "@/components/studio/useEditor";
 import { ErrorNote, Spinner } from "@/components/ui/bits";
@@ -73,7 +74,7 @@ function Studio({ clipId }: { clipId: string }) {
   const [time, setTime] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [selection, setSelection] = useState<string[]>([]);
-  const [leftTab, setLeftTab] = useState<"media" | "text" | "subs" | "cards" | "effects" | "ai">("media");
+  const [leftTab, setLeftTab] = useState<"media" | "text" | "subs" | "transcript" | "cards" | "effects" | "ai">("media");
   const [rightTab, setRightTab] = useState<"inspector" | "media" | "text" | "subs" | "cards" | "effects" | "ai">("inspector");
   const [mobileTab, setMobileTab] = useState<"clips" | "subs" | "cards">("clips");
   const [exporting, setExporting] = useState(search.get("panel") === "export");
@@ -339,6 +340,7 @@ function Studio({ clipId }: { clipId: string }) {
     if (tab === "text") return <InsertPanel kind="text" onText={addText} onEffect={addEffect} />;
     if (tab === "effects") return <InsertPanel kind="effects" onText={addText} onEffect={addEffect} />;
     if (tab === "subs") return subsEl;
+    if (tab === "transcript") return <TranscriptEditor doc={doc} time={clipTime} clipLen={clipLen} onSegments={setSegments} onSeek={seekClip} />;
     if (tab === "cards") return cardsEl;
     return (
       <AiPanel doc={doc} clipId={clipId} sourceId={data.source.id} score={data.clip.score} reasons={data.clip.scoreReasons ?? []} hashtags={data.suggestions.hashtags} srcSize={srcSize} onDoc={setDoc} onConfig={setConfig} onCaptionsRegenerated={load} onFollowFace={() => { setConfig({ framing: "follow" }); if (face.state !== "ready" && face.state !== "detecting") void detectFaces(); }} length={length} silenceSec={silenceSec} onCutSilences={cutSilences} onReferenceStyle={applyReference} />
@@ -442,7 +444,7 @@ function Studio({ clipId }: { clipId: string }) {
       {layout === "desktop" && (
         <div className="grid min-h-0 flex-1" style={{ gridTemplateColumns: "300px minmax(0,1fr) 320px", gridTemplateRows: "minmax(0,1fr) 300px" }}>
           <aside aria-label="Library and tools" className="flex min-h-0 flex-col border-r border-line bg-surface">
-            <Tabs label="Left panel" value={leftTab} onChange={setLeftTab} tabs={[["media", "Media"], ["text", "Text"], ["effects", "Effects"], ["subs", "Subtitles"], ["cards", "Cards"], ["ai", "AI Editor Pro"]]} />
+            <Tabs label="Left panel" value={leftTab} onChange={setLeftTab} tabs={[["media", "Media"], ["text", "Text"], ["effects", "Effects"], ["subs", "Subtitles"], ["transcript", "Transcript"], ["cards", "Cards"], ["ai", "AI Editor Pro"]]} />
             <div className="min-h-0 flex-1 overflow-y-auto" role="tabpanel">{panel(leftTab)}</div>
           </aside>
           <section aria-label="Preview" className="min-h-0 bg-bg">{playerEl}</section>
