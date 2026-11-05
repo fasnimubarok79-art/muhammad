@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { buildTrack, cropFraction, focusAt, focusExpr, simplify, type FaceSample } from "@/lib/media/reframe";
+import { FFMPEG } from "./helpers/binaries";
 
 const moving = (n = 40): FaceSample[] => Array.from({ length: n }, (_, i) => ({ t: i * 0.25, faces: [[0.2 + (0.6 * i) / (n - 1), 0.4, 0.1, 0.18]] }));
 
@@ -51,7 +52,7 @@ describe("follow-face camera path", () => {
   it("focus expression is accepted and evaluated by ffmpeg", () => {
     const expr = focusExpr([{ t: 0, x: 0.2 }, { t: 2, x: 0.8 }]);
     // crop a 1920-wide test frame to 608 px and read the x offset ffmpeg used at t=1 (subject 0.5 -> centred)
-    const log = execFileSync("ffmpeg", ["-hide_banner", "-nostdin", "-f", "lavfi", "-i", "testsrc2=s=1920x1080:r=10:d=2", "-vf", `crop=608:1080:x='max(0,min(in_w-out_w,(${expr})*in_w-out_w/2))':y=0,showinfo`, "-f", "null", "-"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    const log = execFileSync(FFMPEG, ["-hide_banner", "-nostdin", "-f", "lavfi", "-i", "testsrc2=s=1920x1080:r=10:d=2", "-vf", `crop=608:1080:x='max(0,min(in_w-out_w,(${expr})*in_w-out_w/2))':y=0,showinfo`, "-f", "null", "-"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     expect(log).toBe("");
   });
 });
