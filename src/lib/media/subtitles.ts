@@ -118,6 +118,7 @@ export type SubtitleStyle = {
   shadow: number;
   marginV: number; // distance from bottom at PlayResY
   maxCharsPerLine: number;
+  popScale: number; // active word scale multiplier for \\t \\fscx \\fscy (1.0 = no pop)
 };
 
 /** "Impact": huge centred captions, yellow active word, heavy stroke, sharp shadow (short-form style). */
@@ -133,7 +134,7 @@ export const PUNCH_KEYWORD_SCALE = 1.9;
 
 /** "Hormozi / Pro Shorts": huge bold centred captions, bright highlight active word that scales up
  * with \\t \\fscx \\fscy when spoken, thick black outline and shadow for maximum readability. */
-export const HORMOZI_STYLE: Partial<SubtitleStyle> = { preset: "hormozi", fontSize: 110, highlight: "#FFD21F", outline: 12, shadow: 6, marginV: 700, maxCharsPerLine: 14 };
+export const HORMOZI_STYLE: Partial<SubtitleStyle> = { preset: "hormozi", fontSize: 110, highlight: "#FFD21F", outline: 12, shadow: 6, marginV: 700, maxCharsPerLine: 14, popScale: 1.35 };
 
 const KEY_STOP = new Set(
   (
@@ -167,6 +168,7 @@ export const DEFAULT_STYLE: SubtitleStyle = {
   shadow: 3,
   marginV: 540,
   maxCharsPerLine: 18,
+  popScale: 1.0,
 };
 
 /** #RRGGBB -> ASS &H00BBGGRR */
@@ -263,7 +265,7 @@ export function toAss(segs: Segment[], style: SubtitleStyle, play = { w: 1080, h
           const t2 = assText(w2.w);
           const isActive = j === i;
           const color = isActive ? hl : assColor(style.primary);
-          const anim = isActive ? `\\t(0,${durCs},\\fscx135\\fscy135)` : "";
+          const anim = isActive ? `\\t(0,${durCs},\\fscx${Math.round(style.popScale * 100)}\\fscy${Math.round(style.popScale * 100)})` : "";
           return `${s2}{\\c${color}\\3c&H000000&\\bord${bord}\\shad${shad}\\4c&H000000&${anim}}${t2}{\\r}`;
         }).join("");
         events.push(`Dialogue: 0,${assTime(start)},${assTime(end)},Main,,0,0,0,,${line}`);

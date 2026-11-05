@@ -2,7 +2,8 @@
 
 ## 2026-11-05 · Phase 6: subtitle studio – Hormozi / Pro Shorts preset & Transcript Editor
 - New "Hormozi" card style: black background, bold Inter Black at 210px, uppercase text, thick black outline and drop shadow. Shown in CardPanel style picker and CardView preview.
-- New "hormozi" subtitle preset: every word is its own ASS event; inactive words are white with thick black outline/shadow, the active word flashes bright `#FFD21F` highlight and scales up via `\t(0,N,\fscx135\fscy135)` so it pops when spoken.
+- New "hormozi" subtitle preset: every word is its own ASS event; inactive words are white with thick black outline/shadow, the active word flashes bright `#FFD21F` highlight and scales up via `\t(0,N,\fscx<N>\fscy<N>)` so it pops when spoken. Pop scale, highlight colour, outline and shadow are customisable in the "Caption effects" panel.
+- Caption effects panel (Studio "effects" tab): active word highlight colour, pop scale slider (`\fscx`/`\fscy`), outline thickness and shadow thickness, stored in `SubtitleStyle.popScale` and rendered through the `ass` filter. Also exposed in the Inspector's Subtitles group.
 - Verified end-to-end with a real FFmpeg burn-in: 5s 1080×1920 MP4, H.264/AAC, all `\t` `\fscx` `\fscy` animation tags render through the `ass` filter.
 - Transcript Editor panel in the Studio left sidebar ("Transcript" tab): word-level subtitle editing with inline text fixes, per-word timing nudges within bounds, merge/split/add/delete lines, and real-time active-word highlighting synced to the playhead. Edits flow through `useEditor.commit` (undo/redo + debounced server save).
 

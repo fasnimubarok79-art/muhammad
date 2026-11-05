@@ -7,6 +7,7 @@ import { Wordmark } from "@/components/app/AppShell";
 import { useSession } from "@/components/app/session";
 import { AiPanel } from "@/components/studio/AiPanel";
 import { CardPanel } from "@/components/studio/CardPanel";
+import { EffectControls } from "@/components/studio/EffectControls";
 import { ExportDialog } from "@/components/studio/ExportDialog";
 import { InsertPanel } from "@/components/studio/InsertPanel";
 import { ItemInspector } from "@/components/studio/ItemInspector";
@@ -338,9 +339,9 @@ function Studio({ clipId }: { clipId: string }) {
   const panel = (tab: string): ReactNode => {
     if (tab === "media") return <MediaPanel projectId={data.clip.projectId} onAdd={addMedia} onKnown={onKnown} />;
     if (tab === "text") return <InsertPanel kind="text" onText={addText} onEffect={addEffect} />;
-    if (tab === "effects") return <InsertPanel kind="effects" onText={addText} onEffect={addEffect} />;
     if (tab === "subs") return subsEl;
     if (tab === "transcript") return <TranscriptEditor doc={doc} time={clipTime} clipLen={clipLen} onSegments={setSegments} onSeek={seekClip} />;
+    if (tab === "effects") return <EffectControls style={doc.config.style} onStyle={(s) => setConfig({ style: { ...doc.config.style, ...s } })} />;
     if (tab === "cards") return cardsEl;
     return (
       <AiPanel doc={doc} clipId={clipId} sourceId={data.source.id} score={data.clip.score} reasons={data.clip.scoreReasons ?? []} hashtags={data.suggestions.hashtags} srcSize={srcSize} onDoc={setDoc} onConfig={setConfig} onCaptionsRegenerated={load} onFollowFace={() => { setConfig({ framing: "follow" }); if (face.state !== "ready" && face.state !== "detecting") void detectFaces(); }} length={length} silenceSec={silenceSec} onCutSilences={cutSilences} onReferenceStyle={applyReference} />

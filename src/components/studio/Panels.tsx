@@ -7,9 +7,10 @@ import { retext, retime, splitAt, DEFAULT_STYLE, type Config, type Doc, type Seg
 
 /** Style values a subtitle animation brings with it (Impact is big, centred and yellow). */
 export function styleFor(preset: Style["preset"], current: Style): Style {
-  if (preset === "impact") return { ...current, preset, fontSize: 108, highlight: "#FFD21F", outline: 10, shadow: 5, marginV: 840 };
-  if (preset === "punch") return { ...current, preset, fontSize: 62, outline: 6, shadow: 3, marginV: 640 };
-  if (current.preset === "impact" || current.preset === "punch") return { ...current, preset, fontSize: DEFAULT_STYLE.fontSize, highlight: DEFAULT_STYLE.highlight, outline: DEFAULT_STYLE.outline, shadow: DEFAULT_STYLE.shadow, marginV: DEFAULT_STYLE.marginV };
+  if (preset === "impact") return { ...current, preset, fontSize: 108, highlight: "#FFD21F", outline: 10, shadow: 5, marginV: 840, popScale: current.popScale };
+  if (preset === "punch") return { ...current, preset, fontSize: 62, outline: 6, shadow: 3, marginV: 640, popScale: current.popScale };
+  if (preset === "hormozi") return { ...current, preset, fontSize: 110, highlight: "#FFD21F", outline: 12, shadow: 6, marginV: 700, popScale: current.popScale };
+  if (current.preset === "impact" || current.preset === "punch" || current.preset === "hormozi") return { ...current, preset, fontSize: DEFAULT_STYLE.fontSize, highlight: DEFAULT_STYLE.highlight, outline: DEFAULT_STYLE.outline, shadow: DEFAULT_STYLE.shadow, marginV: DEFAULT_STYLE.marginV, popScale: DEFAULT_STYLE.popScale };
   return { ...current, preset };
 }
 
@@ -106,6 +107,8 @@ export function Inspector({ doc, length, silenceSec, onConfig, onDoc, onCutSilen
         <Row label="Highlight" htmlFor="i-hc"><input id="i-hc" type="color" value={c.style.highlight} onChange={(e) => st({ highlight: e.target.value.toUpperCase() })} className="h-8 w-full rounded bg-surface2" /></Row>
         <Row label="Outline" htmlFor="i-ol"><input id="i-ol" type="range" min={0} max={14} value={c.style.outline} onChange={(e) => st({ outline: Number(e.target.value) })} className="w-full accent-[#FF7A1A]" /></Row>
         <Row label="Shadow" htmlFor="i-sh"><input id="i-sh" type="range" min={0} max={10} value={c.style.shadow} onChange={(e) => st({ shadow: Number(e.target.value) })} className="w-full accent-[#FF7A1A]" /></Row>
+        <Row label="Pop scale" htmlFor="i-ps"><input id="i-ps" type="range" min={1} max={2} step={0.05} value={c.style.popScale} onChange={(e) => st({ popScale: Number(e.target.value) })} className="w-full accent-[#FF7A1A]" /></Row>
+        <p id="i-ps-h" className="-mt-1 text-[11px] text-faint">Active word scale when spoken. 1.0 = no pop, 1.35 = default Hormozi pop.</p>
       </Group>
 
       <Group title="Audio">

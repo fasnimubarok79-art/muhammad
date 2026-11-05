@@ -48,5 +48,32 @@ describe("hormozi / Pro Shorts subtitles", () => {
     expect(style.outline).toBe(12);
     expect(style.shadow).toBe(6);
     expect(style.maxCharsPerLine).toBe(14);
+    expect(style.popScale).toBe(1.35);
+  });
+
+  it("renders popScale as \\fscx / \\fscy in the active word animation", () => {
+    const words = mk("hey guys listen up", 0);
+    const custom = { ...style, popScale: 1.5 };
+    const ass = toAss([{ start: 0, end: 3.6, text: words.map((w) => w.w).join(" "), words }], custom);
+    const ev = ass.split("\n").filter((l) => l.startsWith("Dialogue:"));
+    expect(ev[0]).toContain("\\t(0,40,\\fscx150\\fscy150)");
+    // inactive popScale 1.0 renders no animation
+    // inactive popScale 1.0 renders no visible pop (hormozi path with scale 1.0)
+    // inactive popScale 1.0 renders no visible pop (hormozi path with scale 1.0)
+    const plain: SubtitleStyle = {
+      preset: "hormozi",
+      fontName: "Inter Black",
+      fontSize: 110,
+      primary: "#FFFFFF",
+      highlight: "#FFD21F",
+      outline: 12,
+      shadow: 6,
+      marginV: 700,
+      maxCharsPerLine: 14,
+      popScale: 1.0,
+    };
+    const ass2 = toAss([{ start: 0, end: 0.4, text: "hey", words: [{ w: "hey", s: 0, e: 0.4 }] }], plain);
+    const ev2 = ass2.split("\n").filter((l) => l.startsWith("Dialogue:"));
+    expect(ev2[0]).toContain("\\t(0,40,\\fscx100\\fscy100)"); // 1.0 = no visible pop
   });
 });
