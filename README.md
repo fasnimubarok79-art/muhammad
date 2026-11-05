@@ -1,6 +1,6 @@
 # ClipKita-Pro
 
-Platform clipping dan editing video: upload video atau tempel link, server mentranskripsi audio dengan Whisper, mengusulkan klip berbasis kalimat utuh, membuat subtitle karaoke yang sinkron per kata, lalu merender MP4 H.264/AAC 1080×1920 yang diverifikasi dengan ffprobe.
+Platform clipping dan editing video: upload video atau tempel link, server mentranskripsi audio dengan Whisper, mengusulkan klip berbasis kalimat utuh, membuat subtitle karaoke yang sinkron per kata, lalu merender MP4 H.264/AAC 1080×1920 yang diverifikasi dengan ffprobe dan diaudit kualitasnya (decode penuh, ketajaman, loudness, alignment audio/video).
 
 ## Arsitektur
 

@@ -33,7 +33,7 @@ Status as of the commit that adds this file. "Done" means implemented **and** co
 | Dashboard: videos analysed, clips, minutes processed, projects, render status, activity | Done | All from the database |
 | Delete files | Done | Delete project (typed-name confirmation) removes its media files; refused while jobs run |
 | Temporary file cleanup | Done for render work files | Source retention policy still to define |
-| Quality auditor (sharpness, audio, sync, ratio scores) | Missing | Planned after render (ffmpeg blurdetect/ebur128/ffprobe) |
+| Quality auditor (sharpness, audio, sync, ratio scores) | Done (report only) | Measured after render with blurdetect, ebur128, a full decode and ffprobe; 0 to 100 score, findings and recommendations. No auto-fix. |
 | B-roll, music, sound effects, speed ramp, keyframes, stabilisation, motion blur | Missing | Large items; music/SFX need a licensed library |
 | Separate menus | Done | Sidebar: Dashboard, Galeri Klip, Proyek, Klip Viral, AI Video Editor, Subtitle Studio, Riwayat Export, Publikasi, Token, Pengaturan (+ Admin) |
 | Purple/blue palette | Not changed | Brand decision pending |
@@ -62,7 +62,7 @@ Status as of the commit that adds this file. "Done" means implemented **and** co
 2. ~~Face-aware reframing~~ done. Next for it: pick the active speaker by mouth movement when several faces are visible.
 3. **Batch export and file deletion.** Render several selected clips, delete sources/projects with storage cleanup.
 4. **Watermark, intro/outro, background colour/blur options.**
-5. **Quality audit after render.** Sharpness, loudness, sync and ratio checks with a 0 to 100 score and fixes.
+5. ~~Quality audit after render~~ done: sharpness, loudness, full decode, format and A/V alignment with a 0 to 100 score, findings and recommendations. Next for it: optional corrective re-encode (auto-fix).
 6. **Optional LLM provider** for titles, hooks and moment understanding, configured by API key.
 7. **Speaker diarization.**
 8. **Deployment** (Docker image tested, reverse proxy, backups).

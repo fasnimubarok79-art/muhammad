@@ -5,9 +5,10 @@ Read this first at the start of every session. One phase per session.
 ## Current phase
 
 **Phase 4: professional video editor core.** Done and merged to `main`. Additive migration approved by the owner on 2026-11-05 (`docs/migrations/phase-4-timeline.md`).
-**Next: Phase 5** (proposed): AI clip generator pro (semantic highlights need an LLM provider decision), then Phase 6 subtitle studio and effect controls.
+**Phase 5, first increment: quality audit.** Done on `feat/clipkita-pro-phase-5`, no migration needed. The finished MP4 is measured (technical format, full decode, sharpness, loudness, A/V alignment) and gets a 0 to 100 score with findings and recommendations. Auto-fix is **not** built; the audit only reports. Semantic AI highlights still need an LLM provider decision.
+**Next:** finish Phase 5 (semantic highlight generator when an LLM key exists) or move to Phase 6 subtitle studio and effect controls.
 
-Phases: 0 audit (done, `feat/clipkita-pro-phase-0`), 1 rebrand and flags (done, `feat/clipkita-pro-phase-1`), 2 Cinematic Punch (done, `feat/clipkita-pro-phase-2`), 3 audit report and word cards (done, `feat/clipkita-pro-phase-3`), 4 editor core (done, `feat/clipkita-pro-phase-4`).
+Phases: 0 audit (done, `feat/clipkita-pro-phase-0`), 1 rebrand and flags (done, `feat/clipkita-pro-phase-1`), 2 Cinematic Punch (done, `feat/clipkita-pro-phase-2`), 3 audit report and word cards (done, `feat/clipkita-pro-phase-3`), 4 editor core (done, `feat/clipkita-pro-phase-4`), 5 quality audit (done, `feat/clipkita-pro-phase-5`).
 
 This file is the single status document. `README.md` covers architecture and setup, `CHANGELOG.md` the release notes, `RECOVERY.md` backup and recovery, `docs/reference/` the style references. The continuation prompt's list (PROJECT_STATUS, HANDOVER, TEST_REPORT and so on) maps onto these files instead of new duplicates.
 
@@ -63,7 +64,7 @@ Legend: DONE (implemented and tested), PARTIAL, MISSING, CONFLICT (differs from 
 | 7. Transitions | MISSING | |
 | 8. Timeline editor: timestamps, trim, split, subtitle style, crop | DONE | |
 | 8. Zoom keyframes, B-roll, music, watermark | PARTIAL | Keyframes (position, scale, opacity, volume), B-roll and overlays from the user's own library, music on audio tracks. No watermark, no stock B-roll |
-| 9. Quality audit 0 to 100 with auto-fix | MISSING | |
+| 9. Quality audit 0 to 100 with auto-fix | PARTIAL | `qualityAudit` is on. Every finished render is measured on the file: technical format (ffprobe), full decode, sharpness (blurdetect), loudness/true peak (ebur128), A/V duration alignment, plus black/freeze intervals as diagnostics. A decode error fails the job and deletes the file. No auto-fix. |
 | 10. Export one clip with progress and download | DONE | 450p/720p/1080p, ffprobe-verified |
 | 10. Batch export, 4K, completion notification | PARTIAL | Bell shows finished jobs; no batch, no 4K |
 | 11. History, delete files and project, quota | DONE | Delete removes storage files; token usage page |
@@ -72,8 +73,8 @@ Legend: DONE (implemented and tested), PARTIAL, MISSING, CONFLICT (differs from 
 | UUID v7 ids, soft delete | MISSING | cuid ids, hard delete. Changing ids is a destructive migration |
 | `LLMProvider` / `STTProvider` interfaces, versioned prompts | MISSING | STT is faster-whisper directly; no LLM yet |
 | FFmpeg filtergraph from EDL in `apps/worker/ffmpeg/builder.py` | PARTIAL | Exists in TypeScript (`src/lib/media/render.ts`) with tests |
-| DoD: Playwright E2E for steps 1 to 11 | PARTIAL | API E2E (67 checks) in repo; browser checks only as dev scripts |
-| DoD: ffprobe + `ffmpeg -v error -f null` on exports | PARTIAL | ffprobe verification in every render; decode check not yet |
+| DoD: Playwright E2E for steps 1 to 11 | PARTIAL | API E2E (68 checks) in repo; browser checks only as dev scripts |
+| DoD: ffprobe + `ffmpeg -v error -f null` on exports | DONE | ffprobe verification and a full decode in every render; a decode error aborts delivery |
 | DoD: subtitle sync within 150 ms | DONE (punch captions) | Burned-in measurement, worst offset 30 ms over 16 events. See `docs/reference/cinematic-punch.md` |
 | DoD: dead-button crawler test | MISSING | |
 | DoD: CI for typecheck, lint, tests, build | MISSING | Runs locally only |
@@ -113,6 +114,23 @@ Statuses use the prompt's terms. "Verified" means tested in this repo with the e
 | Word cards, Cinematic Punch, audit report | VERIFIED WORKING | Still pass their tests; cards and subtitles follow the speech through split and move |
 | Mobile | PARTIALLY WORKING | Phone: preview, clip list with split/duplicate/delete/cut silences, subtitles, cards. Drag timeline from 768 px |
 
+## Phase 5: quality audit (2026-11-05)
+
+Measured on the finished file after the render, not estimated from render settings. Enabled through `config/features.ts` (`qualityAudit`); the existing `outputMeta.quality` field stores the report, so no migration was needed.
+
+| Area | Status | Notes |
+|---|---|---|
+| Technical format and duration | VERIFIED WORKING | Reuses `verifyOutput` (MP4, H.264, AAC, expected size and duration) |
+| Full decode | VERIFIED WORKING | `ffmpeg -v error -i <file> -map 0 -f null -`; decode errors fail the job and the file is deleted |
+| Sharpness | VERIFIED WORKING (with a known limit) | `blurdetect`; flat colour, text-only and still frames report "not measurable" instead of a fake score |
+| Loudness | VERIFIED WORKING | `ebur128` integrated LUFS (target −14) and true peak, with a peak penalty |
+| A/V alignment | VERIFIED WORKING | Per-stream durations from ffprobe; difference in seconds and score |
+| Black / frozen intervals | VERIFIED WORKING (diagnostic) | Reported as findings, not deducted: timeline gaps and still images are legitimate |
+| Score, grade, findings, recommendations | VERIFIED WORKING | 0 to 100, A/B/C/D, shown in the export dialog and the Exports page |
+| Auto-fix | MISSING | The audit only reports. The renderer already applies loudness normalisation; a corrective re-encode is a later increment |
+
+Cost: two extra FFmpeg passes over the finished file (full decode + measurement). They do not modify the output.
+
 Tests never use the user's database. Integration and E2E runs use a separate database and storage folder:
 
 ```
@@ -150,3 +168,4 @@ BASE=http://localhost:3100 TEST_VIDEO=<speech.mp4> MEDIA_DIR=<red.png, tone.wav,
 - 2026-11-05 YouTube link test (owner request, https://youtu.be/9ZwNQ_X2F7o): the app recognises and normalises the link, asks for the rights confirmation, then the download job fails with "The platform could not be reached" because this build environment's network policy blocks YouTube (proxy 403). No crash, no console errors. Added "Try the download again" and an upload hint on failed link imports (browser-checked). Not verified: an actual YouTube download; it needs a machine with YouTube access (the owner's laptop).
 - 2026-11-05 "Reference style" (AI Editor Pro): one undoable step applies Cinematic Punch, punch captions, 9:16, follow-face for landscape sources, and word cards from the real speech about every 9 s (grid card with one word, red accent card with a three-word phrase, keyword in capitals). Real 1080x1920 worker render checked frame by frame. Tests in `tests/cards.test.ts`. Not done from the reference: two-word keywords, gradient/chromatic keyword text, stickers, a photo inside the red panel, black-and-white stock B-roll (needs the owner's own footage on the B-roll track).
 - 2026-11-05 Dependency audit (owner ran `npm audit fix --force` on the laptop, which upgraded Next 14→16, Prisma 6→7, Zod 3→4 and broke the build; that must be undone with the committed lockfile). `npm audit --omit=dev`: 6 production findings (next critical, prisma/@prisma/config/deepmerge-ts, postcss, zod high); every fix is a major upgrade, Next 14.2.35 is the last 14.x. Mitigations now: `images.unoptimized` (measured: `/_next/image` 200 → 404; next/image is not used) and the Windows start script binds to 127.0.0.1. Open decision for the owner: a planned upgrade to Next 16 / Prisma 7 / Zod 4 as its own phase with full regression tests.
+- 2026-11-05 Phase 5 (first increment): quality audit on the finished render. `src/lib/media/qc.ts` measures format/duration (ffprobe), full decode, sharpness (blurdetect), loudness and true peak (ebur128), A/V stream-duration alignment, and reports black/frozen intervals without deducting for them. The worker stores the report in `outputMeta.quality`; any full-decode error deletes the file and fails the job. The export dialog and Exports page show score, grade, checks, findings and recommendations. No auto-fix. Evidence, all on the disposable `clipkita_e2e` + separate storage unless noted: `npm run typecheck`, `npm run lint`, `npm run build` (37 pages); 145 unit/integration tests passed, 1 skipped; API E2E 68/68; browser E2E 54/54 including the quality panel; real audit of an existing 45.3 s render 95/A (decode clean, −14.7 LUFS, alignment 0.00 s, sharpness not measurable because the frame is mostly flat); integration render 97/A (blur 6.5, −14.4 LUFS, alignment 0.00 s). The audit adds two FFmpeg passes per render and does not modify the file. Auto-fix and semantic AI highlights remain open; the latter needs an LLM provider key.

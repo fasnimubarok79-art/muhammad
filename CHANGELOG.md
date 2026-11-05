@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-05 · Phase 5: quality audit
+- Every finished render is measured on the actual MP4: technical format and duration, a full decode, sharpness, loudness/true peak and A/V duration alignment. Black and frozen intervals are reported as diagnostics.
+- The export dialog and the Exports page show a 0 to 100 score, an A/B/C/D grade, findings and concrete recommendations.
+- A full-decode error is fatal: the damaged file is deleted and the job fails instead of delivering it.
+- Auto-fix is not built; the audit only reports. Loudness normalisation already happens during the render.
+
 ## 2026-11-05 · Phase 4: editor core
 - Multi-track timeline in the Studio: main video, B-roll, overlay, text, effects, audio, subtitle and card tracks; move, trim, split, duplicate, delete, ripple delete, lock, mute, hide, markers, snapping, multi-select.
 - Media library: upload video, audio and images, search, filter, sort, preview, rename, safe delete.
