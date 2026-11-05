@@ -22,6 +22,7 @@ type Props = {
   length: number; // timeline seconds
   silenceSec: number; // pauses still on the main track
   onCutSilences: () => void;
+  onReferenceStyle: () => void;
 };
 
 const FACTOR: Record<string, string> = {
@@ -73,7 +74,7 @@ const sentencesOf = (segs: Seg[]) =>
     .map((s) => s.trim())
     .filter((s) => s.length > 8);
 
-export function AiPanel({ doc, clipId, sourceId, score, reasons, hashtags, srcSize, onDoc, onConfig, onCaptionsRegenerated, onFollowFace, length, silenceSec, onCutSilences }: Props) {
+export function AiPanel({ doc, clipId, sourceId, score, reasons, hashtags, srcSize, onDoc, onConfig, onCaptionsRegenerated, onFollowFace, length, silenceSec, onCutSilences, onReferenceStyle }: Props) {
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
   const sents = useMemo(() => sentencesOf(doc.segments), [doc.segments]);
@@ -110,6 +111,11 @@ export function AiPanel({ doc, clipId, sourceId, score, reasons, hashtags, srcSi
   return (
     <div>
       <p className="border-b border-line px-3 py-2 text-[11px] text-faint">Suggestions come from this clip&apos;s real transcript and audio analysis. Nothing is generated without source data.</p>
+
+      <Tool title="Reference style" tag="Cinematic Punch">
+        <p className="mb-2">The look of your reference short in one step: small context words with one big glowing keyword, punch-in zoom with a flash, warm moody grade, and word cards about every 9 s (a grid card with one quiet word, then a red card with a short phrase). Card words come from this clip&apos;s speech. Undo removes it.</p>
+        <button className="btn-primary h-7 px-2 text-[12px]" onClick={onReferenceStyle}>Apply reference style</button>
+      </Tool>
 
       <Tool title="Viral Potential Analyzer" tag="estimate">
         {score == null ? <p>No score yet.</p> : (

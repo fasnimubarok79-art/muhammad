@@ -114,6 +114,25 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
                             )}
                           </div>
                         )}
+                        {!s.hasMedia && s.kind === "URL" && job?.status === "failed" && (
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px]">
+                            <button
+                              className="btn-secondary h-8 px-2.5 text-[12px]"
+                              onClick={async () => {
+                                try {
+                                  await api(`/api/sources/${s.id}/analyze`, { method: "POST" });
+                                  toast({ tone: "success", title: "Download queued again" });
+                                  onJobsChanged();
+                                } catch (e) {
+                                  toast({ tone: "error", title: "Not queued", body: e instanceof ClientApiError ? e.body.message : undefined });
+                                }
+                              }}
+                            >
+                              Try the download again
+                            </button>
+                            <span className="text-muted">or <a href="#upload" className="underline hover:text-ink">upload the original file</a> if you have it.</span>
+                          </div>
+                        )}
                         <Link href={`/projects/${data.project.id}/audit/${s.id}`} className="btn-ghost mr-3 mt-1 inline-flex h-8 items-center px-0 text-[12px]">Audit report</Link>
                         {s.hasMedia && !running && (
                           <button

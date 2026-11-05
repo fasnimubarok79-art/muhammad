@@ -21,6 +21,7 @@ import { api, fmtTime } from "@/lib/client";
 import { cardSchema, type WordCard } from "@/lib/media/cards";
 import { blankItem, CANVAS } from "@/lib/timeline/defaults";
 import { mapCards, mapSegments, speechWindows, timelineToSrc } from "@/lib/timeline/mapping";
+import { referenceCards, REFERENCE_CONFIG } from "@/lib/timeline/reference-style";
 import { addItem, addMarker, cutRanges, duplicate, itemsOn, mainTrack, remove, split, timelineEnd } from "@/lib/timeline/ops";
 import type { EffectType, Item, MediaInfo, TextConfig, TimelineDoc, TrackType } from "@/lib/timeline/schema";
 
@@ -249,6 +250,17 @@ function Studio({ clipId }: { clipId: string }) {
     const n = cutRanges(timeline, mainTrack(timeline).id, { sourceVideoId: sourceId }, silenceRanges);
     if (n) { setTimeline(n); toast({ tone: "success", title: "Silences cut", body: "Undo brings them back." }); } else toast({ tone: "info", title: "No pauses left to cut on the main track (or it is locked)" });
   }, [timeline, sourceId, silenceRanges, setTimeline, toast]);
+  const applyReference = useCallback(() => {
+    if (!doc || !data) return;
+    const landscape = (data.source.width ?? 0) > (data.source.height ?? 0);
+    const added = referenceCards(doc.segments, clipLen, doc.config.cards);
+    ed.commit((d) => ({
+      ...d,
+      config: { ...d.config, ...REFERENCE_CONFIG, style: { ...d.config.style, ...REFERENCE_CONFIG.style }, framing: landscape ? "follow" : d.config.framing === "pad" ? "crop" : d.config.framing, cards: [...d.config.cards, ...added] },
+      timeline: { ...d.timeline, width: CANVAS["9:16"].w, height: CANVAS["9:16"].h },
+    }));
+    toast({ tone: "success", title: "Reference style applied", body: `${added.length} word ${added.length === 1 ? "card" : "cards"} added from the speech${landscape ? ", the crop follows the speaker's face" : ""}. Undo removes it.` });
+  }, [doc, data, clipLen, ed, toast]);
   const moveCard = useCallback((id: string, start: number, group: boolean) => {
     if (!timeline || !doc) return;
     const src = timelineToSrc(timeline, sourceId, Math.max(0, start));
@@ -329,7 +341,7 @@ function Studio({ clipId }: { clipId: string }) {
     if (tab === "subs") return subsEl;
     if (tab === "cards") return cardsEl;
     return (
-      <AiPanel doc={doc} clipId={clipId} sourceId={data.source.id} score={data.clip.score} reasons={data.clip.scoreReasons ?? []} hashtags={data.suggestions.hashtags} srcSize={srcSize} onDoc={setDoc} onConfig={setConfig} onCaptionsRegenerated={load} onFollowFace={() => { setConfig({ framing: "follow" }); if (face.state !== "ready" && face.state !== "detecting") void detectFaces(); }} length={length} silenceSec={silenceSec} onCutSilences={cutSilences} />
+      <AiPanel doc={doc} clipId={clipId} sourceId={data.source.id} score={data.clip.score} reasons={data.clip.scoreReasons ?? []} hashtags={data.suggestions.hashtags} srcSize={srcSize} onDoc={setDoc} onConfig={setConfig} onCaptionsRegenerated={load} onFollowFace={() => { setConfig({ framing: "follow" }); if (face.state !== "ready" && face.state !== "detecting") void detectFaces(); }} length={length} silenceSec={silenceSec} onCutSilences={cutSilences} onReferenceStyle={applyReference} />
     );
   };
   const itemInspector = selItem && selTrack ? <ItemInspector doc={timeline} item={selItem} track={selTrack} media={mediaOf(selItem)} time={time} onDoc={setTimeline} onSeek={seek} /> : null;

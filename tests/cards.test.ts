@@ -62,3 +62,26 @@ describe("word cards", () => {
     expect(activeCard(cards, 2.5)).toBeNull();
   });
 });
+
+import { referenceCards } from "@/lib/timeline/reference-style";
+describe("reference style cards", () => {
+  const seg = (start: number, text: string) => {
+    const words = text.split(" ").map((w, i) => ({ w, s: start + i * 0.4, e: start + i * 0.4 + 0.35 }));
+    return { start, end: start + words.length * 0.4, text, words };
+  };
+  const segs = [seg(0.5, "and so my fellow"), seg(3, "yang paling penting adalah"), seg(8, "ini terlalu dekat"), seg(13, "satu kejadian yang menimpa dia"), seg(23, "lebih dari sekedar miskin")];
+  it("alternates grid and accent cards from spoken words, about every 9 s, starting on the word", () => {
+    const cards = referenceCards(segs, 30);
+    expect(cards.map((c) => [c.style, c.text, Number(c.at.toFixed(2))])).toEqual([
+      ["grid", "yang", 3],
+      ["accent", "satu KEJADIAN yang", 13],
+      ["grid", "lebih", 23],
+    ]);
+    for (const c of cards) expect(cardSchema.safeParse(c).success).toBe(true);
+  });
+  it("keeps cards the user already placed and does not stack new ones on them", () => {
+    const mine = [{ ...newCard(13, "mine", "black") }];
+    const cards = referenceCards(segs, 30, mine);
+    expect(cards.some((c) => Math.abs(c.at - 13) < 9)).toBe(false);
+  });
+});
