@@ -109,7 +109,7 @@ export function parseCaptions(text: string): Segment[] {
 // ---------- ASS (burned-in) ----------
 
 export type SubtitleStyle = {
-  preset: "karaoke" | "clean" | "pop" | "impact" | "punch";
+  preset: "karaoke" | "clean" | "pop" | "impact" | "punch" | "hormozi";
   fontName: string;
   fontSize: number; // at PlayResY
   primary: string; // #RRGGBB
@@ -130,6 +130,10 @@ export const IMPACT_STYLE: Partial<SubtitleStyle> = { preset: "impact", fontSize
 export const PUNCH_STYLE: Partial<SubtitleStyle> = { preset: "punch", fontSize: 62, outline: 6, shadow: 3, marginV: 640, maxCharsPerLine: 22 };
 export const PUNCH_COLORS = ["#3FA9FF", "#FF3B3B", "#3DDC72", "#FFD21F"];
 export const PUNCH_KEYWORD_SCALE = 1.9;
+
+/** "Hormozi / Pro Shorts": huge bold centred captions, bright highlight active word that scales up
+ * with \\t \\fscx \\fscy when spoken, thick black outline and shadow for maximum readability. */
+export const HORMOZI_STYLE: Partial<SubtitleStyle> = { preset: "hormozi", fontSize: 110, highlight: "#FFD21F", outline: 12, shadow: 6, marginV: 700, maxCharsPerLine: 14 };
 
 const KEY_STOP = new Set(
   (
@@ -240,6 +244,30 @@ export function toAss(segs: Segment[], style: SubtitleStyle, play = { w: 1080, h
     }
     if (style.preset === "clean") {
       events.push(`Dialogue: 0,${assTime(seg.start)},${assTime(seg.end)},Main,,0,0,0,,${render(-1)}`);
+      continue;
+    }
+    if (style.preset === "hormozi") {
+      // Pro Shorts / Hormozi: every word of the line is shown; the active word flashes bright
+      // highlight and scales up with \\t \\fscx \\fscy so it "pops" when spoken. Inactive words are
+      // white with the same thick black outline and shadow for maximum readability.
+      const hl = assColor(style.highlight);
+      const bord = style.outline;
+      const shad = style.shadow;
+      words.forEach((w, i) => {
+        const start = i === 0 ? seg.start : w.s;
+        const end = i === words.length - 1 ? seg.end : words[i + 1].s;
+        if (end - start < 0.01) return;
+        const durCs = Math.max(1, Math.round((end - start) * 100));
+        const line = words.map((w2, j) => {
+          const s2 = j === 0 ? "" : lineOf[j] !== lineOf[j - 1] ? "\\N" : " ";
+          const t2 = assText(w2.w);
+          const isActive = j === i;
+          const color = isActive ? hl : assColor(style.primary);
+          const anim = isActive ? `\\t(0,${durCs},\\fscx135\\fscy135)` : "";
+          return `${s2}{\\c${color}\\3c&H000000&\\bord${bord}\\shad${shad}\\4c&H000000&${anim}}${t2}{\\r}`;
+        }).join("");
+        events.push(`Dialogue: 0,${assTime(start)},${assTime(end)},Main,,0,0,0,,${line}`);
+      });
       continue;
     }
     words.forEach((w, i) => {

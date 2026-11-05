@@ -6,7 +6,7 @@ import { assColor, assText, assTime, wrapWords } from "./subtitles";
  * to stress one word or phrase. They are burned in through the same ASS file as the subtitles, so the
  * Studio preview and the FFmpeg render read one definition.
  */
-export const CARD_STYLES = ["grid", "paper", "black", "accent"] as const;
+export const CARD_STYLES = ["grid", "paper", "black", "accent", "hormozi"] as const;
 export const CARD_ANIMS = ["fade", "pop", "cut"] as const;
 export type CardStyle = (typeof CARD_STYLES)[number];
 export type CardAnim = (typeof CARD_ANIMS)[number];
@@ -37,6 +37,7 @@ export const CARD_LOOKS: Record<CardStyle, Pick<WordCard, "bg" | "color" | "acce
   paper: { bg: "#F1F0EB", color: "#4A4A4A", accent: "#D9D7CF", font: "serif", italic: true, upper: false, size: 150 },
   black: { bg: "#0B0B0C", color: "#FFFFFF", accent: "#FF7A1A", font: "serif", italic: true, upper: false, size: 150 },
   accent: { bg: "#C8102E", color: "#FFFFFF", accent: "#FFD21F", font: "sans", italic: false, upper: true, size: 130 },
+  hormozi: { bg: "#0B0B0C", color: "#FFFFFF", accent: "#FFD21F", font: "sans", italic: false, upper: true, size: 210 },
 };
 
 export const CARD_FONTS = { serif: "Instrument Serif", sans: "Inter Black" } as const;
@@ -88,9 +89,11 @@ export function cardEvents(cards: Array<WordCard & { start: number }>, play = { 
     if (c.style === "accent") shape(11, assColor(c.accent), rect(0, 0, Math.round(W * 0.05), H));
 
     const pop = c.anim === "pop" ? "\\fscx125\\fscy125\\t(0,160,\\fscx100\\fscy100)" : "";
+    const bold = c.style === "hormozi" ? "\\b1" : "\\b0";
+    const bordShad = c.style === "hormozi" ? `\\bord${Math.max(2, Math.round(c.size / 25))}\\shad${Math.max(1, Math.round(c.size / 40))}\\3c&H000000&\\4c&H000000&` : "\\bord0\\shad0";
     const text = cardLines(c, W).map(assText).join("\\N");
     out.push(
-      `Dialogue: 13,${s},${e},Card,,0,0,0,,{\\an5\\pos(${Math.round(W / 2)},${Math.round(H * c.y)})\\fn${CARD_FONTS[c.font]}\\fs${c.size}\\i${c.italic ? 1 : 0}\\b0\\c${assColor(c.color)}\\bord0\\shad0${fad}${pop}}${text}`,
+      `Dialogue: 13,${s},${e},Card,,0,0,0,,{\\an5\\pos(${Math.round(W / 2)},${Math.round(H * c.y)})\\fn${CARD_FONTS[c.font]}\\fs${c.size}\\i${c.italic ? 1 : 0}${bold}\\c${assColor(c.color)}${bordShad}${fad}${pop}}${text}`,
     );
   }
   return out;

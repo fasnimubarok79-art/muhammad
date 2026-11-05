@@ -9,7 +9,7 @@ export type Resolution = "450p" | "720p" | "1080p";
 export type Preset = {
   id: PresetId;
   label: string;
-  subtitle: "karaoke" | "pop" | "clean" | "impact" | "punch";
+  subtitle: "karaoke" | "pop" | "clean" | "impact" | "punch" | "hormozi";
   zoom: number; // total zoom gained over the clip, 0 = none
   eq: { contrast: number; saturation: number; brightness: number; gamma: number };
   warm: number; // 0..0.1 colour balance toward warm highlights

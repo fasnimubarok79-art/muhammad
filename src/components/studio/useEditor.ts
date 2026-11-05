@@ -7,7 +7,7 @@ import type { TimelineDoc } from "@/lib/timeline/schema";
 
 export type Word = { w: string; s: number; e: number; p?: number };
 export type Seg = { start: number; end: number; text: string; words: Word[] };
-export type Style = { preset: "karaoke" | "clean" | "pop" | "impact" | "punch"; fontSize: number; primary: string; highlight: string; outline: number; shadow: number; marginV: number };
+export type Style = { preset: "karaoke" | "clean" | "pop" | "impact" | "punch" | "hormozi"; fontSize: number; primary: string; highlight: string; outline: number; shadow: number; marginV: number };
 export type Config = {
   preset: "cinematic_punch" | "cinematic_podcast" | "viral_short" | "viral_spotlight" | "educational" | "storytelling" | "clean_professional";
   aspect: "9:16" | "16:9" | "1:1";

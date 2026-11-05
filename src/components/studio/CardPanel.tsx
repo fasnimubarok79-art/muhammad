@@ -8,7 +8,7 @@ import { useToast } from "../ui/use-toast";
 import { activeSubtitle } from "@/lib/timeline/preview";
 import type { Doc } from "./useEditor";
 
-const STYLES: Array<{ v: CardStyle; l: string }> = [{ v: "grid", l: "Grid" }, { v: "paper", l: "Paper" }, { v: "black", l: "Black" }, { v: "accent", l: "Accent" }];
+const STYLES: Array<{ v: CardStyle; l: string }> = [{ v: "grid", l: "Grid" }, { v: "paper", l: "Paper" }, { v: "black", l: "Black" }, { v: "accent", l: "Accent" }, { v: "hormozi", l: "Hormozi" }];
 const ANIMS: Array<{ v: CardAnim; l: string }> = [{ v: "fade", l: "Fade" }, { v: "pop", l: "Pop" }, { v: "cut", l: "Cut" }];
 
 function Pick<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: Array<{ v: T; l: string }>; onChange: (v: T) => void }) {

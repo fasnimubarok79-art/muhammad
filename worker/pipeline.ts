@@ -17,7 +17,7 @@ import { displaySize, probe } from "../src/lib/media/probe";
 import { auditOutput, type QualityReport } from "../src/lib/media/qc";
 import { FEATURES } from "../config/features";
 import { parseScenes, parseSilences, proposeClips, type Interval } from "../src/lib/media/clipping";
-import { buildSegments, DEFAULT_STYLE, IMPACT_STYLE, PUNCH_STYLE, sliceWords, toAss, type Segment, type SubtitleStyle, type Word } from "../src/lib/media/subtitles";
+import { buildSegments, DEFAULT_STYLE, HORMOZI_STYLE, IMPACT_STYLE, PUNCH_STYLE, sliceWords, toAss, type Segment, type SubtitleStyle, type Word } from "../src/lib/media/subtitles";
 import { cardEvents, CARD_STYLE_LINE, type WordCard } from "../src/lib/media/cards";
 import { buildRenderArgs, outputSize, PRESETS, punchPlan, verifyOutput, type Aspect, type Framing, type PresetId, type Resolution } from "../src/lib/media/render";
 import { defaultTimeline, pickFps } from "../src/lib/timeline/defaults";
@@ -373,7 +373,7 @@ export async function render(ctx: Ctx) {
     const texts = textEvents(plan.texts, play);
     if (burnSubs || cards.length || texts.length) {
       const vertical = params.aspect === "9:16";
-      const base: SubtitleStyle = { ...DEFAULT_STYLE, ...(preset.subtitle === "impact" ? IMPACT_STYLE : preset.subtitle === "punch" ? PUNCH_STYLE : {}), preset: preset.subtitle, ...params.style };
+      const base: SubtitleStyle = { ...DEFAULT_STYLE, ...(preset.subtitle === "impact" ? IMPACT_STYLE : preset.subtitle === "punch" ? PUNCH_STYLE : preset.subtitle === "hormozi" ? HORMOZI_STYLE : {}), preset: preset.subtitle, ...params.style };
       const style = vertical ? base : { ...base, fontSize: Math.round(base.fontSize * 0.8), marginV: 230, maxCharsPerLine: 32 };
       assPath = path.join(work, "subs.ass");
       const extra = { styles: [CARD_STYLE_LINE, TITLE_STYLE_LINE], events: [...texts, ...cardEvents(cards, play)] };

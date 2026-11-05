@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { cardEvents, cardLines, cardSchema, cardsSchema, CARD_STYLE_LINE, newCard, placeCards, activeCard } from "@/lib/media/cards";
+import { assColor } from "@/lib/media/subtitles";
+import { cardEvents, cardLines, cardSchema, cardsSchema, CARD_LOOKS, CARD_STYLE_LINE, CARD_STYLES, newCard, placeCards, activeCard } from "@/lib/media/cards";
 import { keepIntervals, mapTime } from "@/lib/media/render";
 import { DEFAULT_STYLE, toAss } from "@/lib/media/subtitles";
 
@@ -60,6 +61,39 @@ describe("word cards", () => {
     const cards = [newCard(1, "a"), newCard(3, "b")];
     expect(activeCard(cards, 1.5)?.text).toBe("a");
     expect(activeCard(cards, 2.5)).toBeNull();
+  });
+});
+
+describe("hormozi card style", () => {
+  it("passes the server schema", () => {
+    const c = newCard(1, "WORD", "hormozi");
+    expect(cardSchema.safeParse(c).success).toBe(true);
+    expect(c.style).toBe("hormozi");
+    expect(c.upper).toBe(true);
+    expect(c.font).toBe("sans");
+  });
+
+  it("renders bold text with thick outline and shadow on a black background", () => {
+    const c = { ...newCard(0, "WORD", "hormozi"), start: 1.5, dur: 1.2 };
+    const ev = cardEvents([c]);
+    const text = ev[ev.length - 1];
+    // background event: full-frame black rect
+    const bg = ev.find((e) => e.includes("m 0 0 l 1080 0 1080 1920 0 1920"));
+    expect(bg).toContain(assColor("#0B0B0C"));
+    // text event: bold, thick outline, shadow, black outline/back colour, WORD text
+    expect(text).toContain("\\b1"); // bold
+    expect(text).toContain("\\bord"); // thick outline
+    expect(text).toContain("\\shad"); // drop shadow
+    expect(text).toContain("\\3c&H000000&"); // black outline colour
+    expect(text).toContain("\\4c&H000000&"); // black back colour
+    expect(text).toContain("WORD");
+  });
+
+  it("is included in CARD_STYLES and CARD_LOOKS", () => {
+    expect(CARD_STYLES).toContain("hormozi");
+    expect(CARD_LOOKS.hormozi.bg).toBe("#0B0B0C");
+    expect(CARD_LOOKS.hormozi.color).toBe("#FFFFFF");
+    expect(CARD_LOOKS.hormozi.size).toBeGreaterThan(150);
   });
 });
 
