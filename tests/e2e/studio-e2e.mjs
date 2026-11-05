@@ -9,6 +9,8 @@ const { chromium } = createRequire(import.meta.url)("playwright");
 const BASE = process.env.BASE ?? "http://localhost:3100";
 const MEDIA = process.env.MEDIA_DIR;
 const OUT = process.env.OUT ?? ".";
+const FFMPEG = process.env.FFMPEG_PATH || "ffmpeg";
+const FFPROBE = process.env.FFPROBE_PATH || "ffprobe";
 let pass = 0;
 let fail = 0;
 const ok = (c, n, x = "") => { if (c) { pass++; console.log("PASS ", n); } else { fail++; console.log("FAIL ", n, x); } };
@@ -99,6 +101,8 @@ ok(mainItems(t).length >= 1, "clip window is on the main track");
 // upload through the panel (file input), shows in the library
 await pg.locator('input[aria-label="Upload media files"]').setInputFiles(`${MEDIA}/red.png`);
 await pg.getByText("red.png added").waitFor({ timeout: 20000 });
+// The success toast fires before the library refresh, so wait for the second copy to appear.
+await pg.waitForFunction(() => [...document.querySelectorAll("li")].filter((li) => li.textContent?.includes("red.png")).length >= 2, null, { timeout: 20000 }).catch(() => undefined);
 ok(await pg.locator("li", { hasText: "red.png" }).count() >= 2, "upload from the media panel");
 
 // add an overlay and an audio item at the playhead, B-roll by drag and drop
@@ -248,11 +252,15 @@ for (let i = 0; i < 300; i++) {
   await sleep(1000);
 }
 ok(job?.status === "completed", "render job completed in the worker", job?.error);
+const qPanel = pg.locator('[aria-label="Quality audit"]');
+await qPanel.waitFor({ timeout: 30000 });
+const qText = await qPanel.innerText();
+ok(job?.outputMeta?.quality?.version === 1 && /Quality audit/.test(qText) && /\d+\/100/.test(qText), "export dialog shows the finished-file quality audit", qText.slice(0, 300));
 await A.req(`/api/renders/${job.id}/download`, { method: "POST" }); // pay the download (10 tokens)
 const dl = await A.req(`/api/renders/${job.id}/download`);
 ok(dl.status === 200 && dl.data.length > 10000, "download the MP4", dl.status);
 writeFileSync(`${OUT}/phase4-render.mp4`, dl.data);
-const probe = JSON.parse(execFileSync("ffprobe", ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", `${OUT}/phase4-render.mp4`], { encoding: "utf8" }));
+const probe = JSON.parse(execFileSync(FFPROBE, ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", `${OUT}/phase4-render.mp4`], { encoding: "utf8" }));
 const v = probe.streams.find((s) => s.codec_type === "video");
 const a = probe.streams.find((s) => s.codec_type === "audio");
 const tlDur = Math.max(...kept.timeline.items.map((i) => i.startFrame + i.durationFrames)) / kept.timeline.fps;
@@ -261,7 +269,7 @@ ok(Math.abs(Number(probe.format.duration) - tlDur) < 0.15, "rendered length = ti
 // the overlay keyframes are in the pixels: red moves right between its first and last frame
 const ov = kept.timeline.items.find((i) => i.id === overlay.id);
 const redX = (sec) => {
-  const raw = execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-ss", String(sec), "-i", `${OUT}/phase4-render.mp4`, "-frames:v", "1", "-vf", "scale=90:160", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]);
+  const raw = execFileSync(FFMPEG, ["-hide_banner", "-loglevel", "error", "-ss", String(sec), "-i", `${OUT}/phase4-render.mp4`, "-frames:v", "1", "-vf", "scale=90:160", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]);
   let s = 0, n = 0;
   for (let i = 0; i < raw.length; i += 3) if (raw[i] > 170 && raw[i + 1] < 90 && raw[i + 2] < 90) { s += ((i / 3) % 90) / 89; n++; }
   return n > 5 ? s / n : NaN;
@@ -271,7 +279,7 @@ const x0 = redX((ov.startFrame + 2) / fps);
 const x1 = redX((ov.startFrame + ov.durationFrames - 3) / fps);
 ok(x0 < 0.6 && x1 > 0.7, "overlay keyframes render: red moves from centre to x≈0.8", `${x0} -> ${x1}`);
 const tone = (from, to) => {
-  const out = spawnSync("ffmpeg", ["-hide_banner", "-nostdin", "-ss", String(from), "-t", String(to - from), "-i", `${OUT}/phase4-render.mp4`, "-vn", "-af", "bandpass=f=1000:width_type=h:w=40,astats=metadata=1:reset=0,ametadata=print:key=lavfi.astats.Overall.RMS_level", "-f", "null", "-"], { encoding: "utf8" }).stderr;
+  const out = spawnSync(FFMPEG, ["-hide_banner", "-nostdin", "-ss", String(from), "-t", String(to - from), "-i", `${OUT}/phase4-render.mp4`, "-vn", "-af", "bandpass=f=1000:width_type=h:w=40,astats=metadata=1:reset=0,ametadata=print:key=lavfi.astats.Overall.RMS_level", "-f", "null", "-"], { encoding: "utf8" }).stderr;
   const all = [...out.matchAll(/RMS_level=(-?[\d.]+|-inf)/g)].map((m) => (m[1] === "-inf" ? -120 : Number(m[1])));
   return all.at(-1) ?? -120;
 };

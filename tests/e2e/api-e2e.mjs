@@ -129,6 +129,8 @@ const renderId = r1.data.job.id;
 job = await waitJob(A, renderId);
 ok(job?.status === "completed", "render completed", JSON.stringify(job?.error));
 ok(job?.outputMeta?.video?.width === 720 && job?.outputMeta?.video?.height === 1280 && job?.outputMeta?.video?.codec === "h264" && job?.outputMeta?.audio?.codec === "aac", "output verified 720x1280 h264/aac", JSON.stringify(job?.outputMeta));
+const q = job?.outputMeta?.quality;
+ok(q?.version === 1 && q?.score >= 0 && q?.score <= 100 && q?.checks?.length === 5 && q?.metrics?.decodeErrors?.length === 0, "quality audit ran on the finished file", JSON.stringify(q ? { score: q.score, grade: q.grade, checks: q.checks, decodeErrors: q.metrics?.decodeErrors } : null));
 
 // ---- download charge
 r = await A.req(`/api/renders/${renderId}/download`);

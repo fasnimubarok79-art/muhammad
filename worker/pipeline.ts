@@ -14,6 +14,8 @@ import { buildYtDlpArgs, parseYtDlpOutput, parseYtDlpProgress, SOCIAL_PLATFORMS,
 import { readdir, rename } from "node:fs/promises";
 import { run, ProcessError } from "../src/lib/media/exec";
 import { displaySize, probe } from "../src/lib/media/probe";
+import { auditOutput, type QualityReport } from "../src/lib/media/qc";
+import { FEATURES } from "../config/features";
 import { parseScenes, parseSilences, proposeClips, type Interval } from "../src/lib/media/clipping";
 import { buildSegments, DEFAULT_STYLE, IMPACT_STYLE, PUNCH_STYLE, sliceWords, toAss, type Segment, type SubtitleStyle, type Word } from "../src/lib/media/subtitles";
 import { cardEvents, CARD_STYLE_LINE, type WordCard } from "../src/lib/media/cards";
@@ -465,9 +467,33 @@ export async function render(ctx: Ctx) {
       await rm(outFile, { force: true });
       throw new JobFailure(`Output failed verification: ${check.problems.join("; ")}`);
     }
+
+    // Quality audit on the finished file. A full decode error is fatal: a damaged file is never delivered.
+    let quality: QualityReport | null = null;
+    if (FEATURES.qualityAudit) {
+      await setProgress(job.id, 96);
+      try {
+        quality = await auditOutput({
+          ffmpeg: ffmpeg(),
+          file: outFile,
+          probe: out,
+          expected: expect,
+          timeoutMs: env().JOB_TIMEOUT_MIN * 60_000,
+          signal: ctx.signal,
+        });
+      } catch (e) {
+        if (e instanceof JobCancelled || ctx.signal.aborted) throw e;
+        console.error("[worker] quality audit failed", e instanceof Error ? e.message : e);
+      }
+      if (quality && quality.metrics.decodeErrors.length > 0) {
+        await rm(outFile, { force: true });
+        throw new JobFailure("Output failed the full decode check");
+      }
+    }
+
     const st = await stat(outFile);
     const removedSec = !stored && params.removeSilence ? Number((Math.min(winLen, (params.trimEnd ?? winLen) - (params.trimStart ?? 0)) - outDur).toFixed(2)) : undefined;
-    return { outputKey: outKey, meta: { ...out, sizeBytes: st.size, ...(removedSec ? { removedSec } : {}), timeline: { stored: Boolean(stored), tracks: doc.tracks.length, items: doc.items.length }, verified: true, ...(reframe ? { reframe } : {}) } };
+    return { outputKey: outKey, meta: { ...out, sizeBytes: st.size, ...(removedSec ? { removedSec } : {}), timeline: { stored: Boolean(stored), tracks: doc.tracks.length, items: doc.items.length }, verified: true, ...(quality ? { quality } : {}), ...(reframe ? { reframe } : {}) } };
   } finally {
     await rm(work, { recursive: true, force: true });
   }

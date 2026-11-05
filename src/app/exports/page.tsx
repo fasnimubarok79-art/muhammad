@@ -7,11 +7,12 @@ import { Empty, ErrorNote, Spinner, StatusPill } from "@/components/ui/bits";
 import { useToast } from "@/components/ui/use-toast";
 import { usePoll } from "@/hooks/usePoll";
 import { api, ClientApiError, fmtBytes, fmtTime } from "@/lib/client";
+import type { QualityReport } from "@/lib/media/qc";
 
 type Job = {
   id: string; status: string; progress: number; error: string | null; createdAt: string; clipId: string | null; clipTitle: string | null; hasOutput: boolean; tokenCost: number;
   params: { resolution?: string; aspect?: string; preset?: string; framing?: string } | null;
-  outputMeta: { durationSec?: number; sizeBytes?: number; video?: { width: number; height: number; codec: string } } | null;
+  outputMeta: { durationSec?: number; sizeBytes?: number; video?: { width: number; height: number; codec: string }; quality?: QualityReport } | null;
 };
 
 const RUNNING = ["queued", "validating", "downloading", "analyzing", "transcribing", "editing", "rendering"];
@@ -31,19 +32,20 @@ export default function Exports() {
   return (
     <AppShell>
       <h1 className="text-[28px] font-extrabold">Riwayat Export</h1>
-      <p className="mt-1 text-muted">Semua render Anda. File yang selesai sudah dicek dengan ffprobe (codec, ukuran, durasi).</p>
+      <p className="mt-1 text-muted">Semua render Anda. File yang selesai dicek dengan ffprobe dan audit kualitas (decode penuh, ketajaman, loudness, alignment audio/video).</p>
       <div className="mt-6">
         {error && <ErrorNote message={error} onRetry={refresh} />}
         {!data && !error && <Spinner />}
         {data && data.jobs.length === 0 && <Empty title="Belum ada export">Buka sebuah klip, pilih Edit Video, lalu Export.</Empty>}
         {data && data.jobs.length > 0 && (
           <div className="card overflow-x-auto">
-            <table className="w-full min-w-[760px] text-[13px]">
+            <table className="w-full min-w-[860px] text-[13px]">
               <thead className="text-left text-[12px] text-muted">
                 <tr>
                   <th className="px-4 py-2 font-medium">Klip</th>
                   <th className="px-4 py-2 font-medium">Format</th>
                   <th className="px-4 py-2 font-medium">Hasil</th>
+                  <th className="px-4 py-2 font-medium">Kualitas</th>
                   <th className="px-4 py-2 font-medium">Status</th>
                   <th className="px-4 py-2 font-medium">Waktu</th>
                   <th className="px-4 py-2" />
@@ -58,6 +60,14 @@ export default function Exports() {
                     <td className="px-4 py-2.5 text-muted tc">{j.params?.resolution} · {j.params?.aspect} · {j.params?.preset?.replace(/_/g, " ")}</td>
                     <td className="px-4 py-2.5 text-muted tc">
                       {j.outputMeta?.video ? `${j.outputMeta.video.width}×${j.outputMeta.video.height} · ${fmtTime(j.outputMeta.durationSec ?? null, false)} · ${fmtBytes(j.outputMeta.sizeBytes)}` : "–"}
+                    </td>
+                    <td className="px-4 py-2.5 tc">
+                      {j.outputMeta?.quality ? (
+                        <span className={j.outputMeta.quality.grade === "D" ? "font-semibold text-danger" : j.outputMeta.quality.grade === "A" ? "font-semibold text-system" : "font-semibold"}>
+                          {j.outputMeta.quality.score}/100
+                          <span className="ml-1 text-[12px] font-normal text-muted">{j.outputMeta.quality.grade}</span>
+                        </span>
+                      ) : "–"}
                     </td>
                     <td className="px-4 py-2.5">
                       <StatusPill status={j.status} progress={j.progress} />

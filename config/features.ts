@@ -14,7 +14,7 @@ export const FEATURES = {
   bRoll: false,
   music: false,
   watermark: false,
-  qualityAudit: false,
+  qualityAudit: true,
   batchExport: false,
   export4k: false,
   /** Account extras that need external services. */

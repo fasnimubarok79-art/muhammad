@@ -5,10 +5,11 @@ import { api, ClientApiError, fmtBytes, fmtTime, newIdempotencyKey } from "@/lib
 import { StatusPill } from "../ui/bits";
 import { useToast } from "../ui/use-toast";
 import { useSession } from "../app/session";
+import type { QualityReport } from "@/lib/media/qc";
 import type { Config } from "./useEditor";
 
 type Quote = { lines: Array<{ label: string; amount: number }>; total: number; charged: number; unlimited: boolean };
-type Job = { id: string; status: string; progress: number; error: string | null; hasOutput: boolean; outputMeta: { durationSec?: number; sizeBytes?: number; video?: { width: number; height: number; fps: number; codec: string }; audio?: { codec: string }; removedSec?: number } | null };
+type Job = { id: string; status: string; progress: number; error: string | null; hasOutput: boolean; outputMeta: { durationSec?: number; sizeBytes?: number; video?: { width: number; height: number; fps: number; codec: string }; audio?: { codec: string }; removedSec?: number; quality?: QualityReport } | null };
 
 /** Shows the exact token cost first, then renders, polls the backend job, previews and downloads. */
 export function ExportDialog({ clipId, config, summary, onClose, beforeRender }: { clipId: string; config: Config; summary: string; onClose: () => void; beforeRender: () => Promise<unknown> }) {
@@ -77,6 +78,7 @@ export function ExportDialog({ clipId, config, summary, onClose, beforeRender }:
 
   const insufficient = quote && !quote.unlimited && balance !== null && balance < quote.charged;
   const done = job?.status === "completed";
+  const quality = job?.outputMeta?.quality;
 
   return (
     <dialog ref={dialog} onClose={onClose} className="card m-auto w-[min(560px,calc(100vw-32px))] p-0 text-ink shadow-float backdrop:bg-black/60" aria-labelledby="exp-h">
@@ -140,6 +142,38 @@ export function ExportDialog({ clipId, config, summary, onClose, beforeRender }:
                   Verified with ffprobe: {job.outputMeta?.video ? `${job.outputMeta.video.width}×${job.outputMeta.video.height} ${job.outputMeta.video.codec.toUpperCase()} ${Math.round(job.outputMeta.video.fps)}fps` : ""} · {job.outputMeta?.audio?.codec.toUpperCase()} · {fmtTime(job.outputMeta?.durationSec ?? null)} · {fmtBytes(job.outputMeta?.sizeBytes)}
                   {job.outputMeta?.removedSec ? ` · ${job.outputMeta.removedSec}s of silence removed` : ""}
                 </p>
+                {quality && (
+                  <div className="mt-3 rounded-ctl border border-line bg-surface2 p-3 text-[12px]" aria-label="Quality audit">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[13px] font-semibold">Quality audit</p>
+                      <p className={`font-semibold ${quality.grade === "D" ? "text-danger" : quality.grade === "A" ? "text-system" : "text-ink"}`}>
+                        {quality.score}/100 · {quality.grade}
+                      </p>
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
+                      {quality.checks.map((c) => (
+                        <div key={c.id} className="flex justify-between gap-2">
+                          <span className="text-muted">{c.label}</span>
+                          <span>{c.score}/{c.max}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {quality.issues.length > 0 && (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-muted">{quality.issues.length} finding{quality.issues.length === 1 ? "" : "s"}</summary>
+                        <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                          {quality.issues.map((issue) => <li key={issue}>{issue}</li>)}
+                        </ul>
+                        {quality.recommendations.length > 0 && (
+                          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted">
+                            {quality.recommendations.map((r) => <li key={r}>{r}</li>)}
+                          </ul>
+                        )}
+                      </details>
+                    )}
+                    <p className="mt-1 text-[11px] text-faint">Measured on the finished file: full decode, sharpness, loudness and A/V alignment.</p>
+                  </div>
+                )}
                 <button className="btn-primary mt-3 w-full" onClick={download}>{user?.unlimited ? "Download MP4" : "Download MP4 · 10 tokens"}</button>
               </>
             )}

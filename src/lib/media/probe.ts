@@ -4,8 +4,8 @@ export type ProbeResult = {
   durationSec: number;
   formatName: string;
   sizeBytes: number;
-  video?: { codec: string; width: number; height: number; fps: number; rotation: number; pixFmt?: string };
-  audio?: { codec: string; sampleRate: number; channels: number };
+  video?: { codec: string; width: number; height: number; fps: number; rotation: number; pixFmt?: string; durationSec?: number };
+  audio?: { codec: string; sampleRate: number; channels: number; durationSec?: number };
 };
 
 function parseRate(r?: string): number {
@@ -24,6 +24,7 @@ type RawStream = {
   pix_fmt?: string;
   sample_rate?: string;
   channels?: number;
+  duration?: string;
   tags?: { rotate?: string };
   side_data_list?: Array<{ rotation?: number }>;
 };
@@ -46,9 +47,17 @@ export function parseProbe(jsonText: string): ProbeResult {
           fps: parseRate(v.avg_frame_rate) || parseRate(v.r_frame_rate),
           rotation,
           pixFmt: v.pix_fmt,
+          ...(v.duration !== undefined ? { durationSec: Number(v.duration) } : {}),
         }
       : undefined,
-    audio: a ? { codec: a.codec_name ?? "", sampleRate: Number(a.sample_rate ?? 0), channels: a.channels ?? 0 } : undefined,
+    audio: a
+      ? {
+          codec: a.codec_name ?? "",
+          sampleRate: Number(a.sample_rate ?? 0),
+          channels: a.channels ?? 0,
+          ...(a.duration !== undefined ? { durationSec: Number(a.duration) } : {}),
+        }
+      : undefined,
   };
 }
 

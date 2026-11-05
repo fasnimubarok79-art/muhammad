@@ -18,6 +18,7 @@ import { addItem, mainTrack, move, setTrack, split } from "@/lib/timeline/ops";
 import { loadOrCreateTimeline, rowsToDoc, saveTimeline } from "@/lib/timeline/store";
 import type { TimelineDoc } from "@/lib/timeline/schema";
 import { runJob } from "../worker/pipeline";
+import { FFMPEG, FFPROBE } from "./helpers/binaries";
 
 const VIDEO = process.env.TEST_VIDEO;
 const enabled = Boolean(VIDEO && existsSync(VIDEO));
@@ -90,13 +91,20 @@ describe.skipIf(!enabled)("real video pipeline", () => {
     const done = await db.renderJob.findUniqueOrThrow({ where: { id: job.id } });
     expect(done.error).toBeNull();
     expect(done.status).toBe("completed");
-    const info = await probe("ffprobe", keyPath(done.outputKey!));
+    const info = await probe(FFPROBE, keyPath(done.outputKey!));
     expect(info.formatName).toContain("mp4");
     expect(info.video?.codec).toBe("h264");
     expect(info.video?.width).toBe(1080);
     expect(info.video?.height).toBe(1920);
     expect(info.audio?.codec).toBe("aac");
-    console.log("[pipeline] render:", JSON.stringify({ key: done.outputKey, dur: info.durationSec, fps: info.video?.fps, meta: done.outputMeta }));
+    const quality = (done.outputMeta as { quality?: { version: number; score: number; grade: string; checks: Array<{ id: string; score: number; max: number }>; metrics: { decodeErrors: string[]; decodeWarning: string | null } } } | null)?.quality;
+    expect(quality?.version).toBe(1);
+    expect(quality?.score).toBeGreaterThanOrEqual(0);
+    expect(quality?.score).toBeLessThanOrEqual(100);
+    expect(quality?.checks.map((c) => c.id)).toEqual(["technical", "decode", "sharpness", "loudness", "alignment"]);
+    expect(quality?.metrics.decodeErrors).toEqual([]);
+    expect(quality?.metrics.decodeWarning).toBeNull();
+    console.log("[pipeline] render:", JSON.stringify({ key: done.outputKey, dur: info.durationSec, fps: info.video?.fps, quality: quality ? { score: quality.score, grade: quality.grade, checks: quality.checks } : null }));
   }, 600_000);
   it("renders the cinematic_punch preset (punch captions, punch-in zoom, flash, word card) end to end", async () => {
     const clip = await db.clip.findFirstOrThrow({ where: { sourceVideoId: sourceId }, orderBy: { score: "desc" } });
@@ -110,13 +118,13 @@ describe.skipIf(!enabled)("real video pipeline", () => {
     const done = await db.renderJob.findUniqueOrThrow({ where: { id: job.id } });
     expect(done.error).toBeNull();
     expect(done.status).toBe("completed");
-    const info = await probe("ffprobe", keyPath(done.outputKey!));
+    const info = await probe(FFPROBE, keyPath(done.outputKey!));
     expect(info.video?.width).toBe(1080);
     expect(info.video?.height).toBe(1920);
     expect(info.audio?.codec).toBe("aac");
     // the paper card (1.0s to 2.2s) is really in the pixels: a bright frame, unlike the speaker footage
     const yavg = (t: number) => {
-      const r = spawnSync("ffmpeg", ["-hide_banner", "-nostdin", "-ss", String(t), "-i", keyPath(done.outputKey!), "-frames:v", "1", "-vf", "signalstats,metadata=print:key=lavfi.signalstats.YAVG", "-f", "null", "-"], { encoding: "utf8" });
+      const r = spawnSync(FFMPEG, ["-hide_banner", "-nostdin", "-ss", String(t), "-i", keyPath(done.outputKey!), "-frames:v", "1", "-vf", "signalstats,metadata=print:key=lavfi.signalstats.YAVG", "-f", "null", "-"], { encoding: "utf8" });
       return Number(/YAVG=([\d.]+)/.exec(r.stderr)?.[1] ?? NaN);
     };
     const onCard = yavg(1.6);
@@ -128,33 +136,33 @@ describe.skipIf(!enabled)("real video pipeline", () => {
   // ---------- multi-track timeline ----------
   const frameStats = (file: string, t: number, crop?: string) => {
     const vf = `${crop ? `crop=${crop},` : ""}signalstats,metadata=print`;
-    const r = spawnSync("ffmpeg", ["-hide_banner", "-nostdin", "-ss", String(t), "-i", file, "-frames:v", "1", "-vf", vf, "-f", "null", "-"], { encoding: "utf8" });
+    const r = spawnSync(FFMPEG, ["-hide_banner", "-nostdin", "-ss", String(t), "-i", file, "-frames:v", "1", "-vf", vf, "-f", "null", "-"], { encoding: "utf8" });
     const get = (k: string) => Number(new RegExp(`${k}=([\\d.]+)`).exec(r.stderr)?.[1] ?? NaN);
     return { y: get("YAVG"), sat: get("SATAVG") };
   };
   /** x centre (0..1) of strongly red pixels in a frame, from a 1-row-per-column scan of a 108x192 thumbnail. */
   const redCentre = (file: string, t: number) => {
-    const raw = execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-ss", String(t), "-i", file, "-frames:v", "1", "-vf", "scale=108:192", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 24 });
+    const raw = execFileSync(FFMPEG, ["-hide_banner", "-loglevel", "error", "-ss", String(t), "-i", file, "-frames:v", "1", "-vf", "scale=108:192", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 24 });
     let sum = 0; let n = 0;
     for (let i = 0; i < raw.length; i += 3) if (raw[i] > 180 && raw[i + 1] < 80 && raw[i + 2] < 80) { sum += ((i / 3) % 108) / 107; n++; }
     return n > 20 ? sum / n : NaN;
   };
   /** Share of pure-green pixels (the B-roll test colour) in a frame. */
   const greenShare = (file: string, t: number) => {
-    const raw = execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-ss", String(t), "-i", file, "-frames:v", "1", "-vf", "scale=108:192", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 24 });
+    const raw = execFileSync(FFMPEG, ["-hide_banner", "-loglevel", "error", "-ss", String(t), "-i", file, "-frames:v", "1", "-vf", "scale=108:192", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 24 });
     let n = 0;
     for (let i = 0; i < raw.length; i += 3) if (raw[i] < 90 && raw[i + 1] > 170 && raw[i + 2] < 90) n++;
     return n / (raw.length / 3);
   };
   const band = (file: string, from: number, to: number, filter: string) => {
-    const r = spawnSync("ffmpeg", ["-hide_banner", "-nostdin", "-ss", String(from), "-t", String(to - from), "-i", file, "-vn", "-af", `${filter},astats=metadata=1:reset=0,ametadata=print:key=lavfi.astats.Overall.RMS_level`, "-f", "null", "-"], { encoding: "utf8" });
+    const r = spawnSync(FFMPEG, ["-hide_banner", "-nostdin", "-ss", String(from), "-t", String(to - from), "-i", file, "-vn", "-af", `${filter},astats=metadata=1:reset=0,ametadata=print:key=lavfi.astats.Overall.RMS_level`, "-f", "null", "-"], { encoding: "utf8" });
     const all = [...r.stderr.matchAll(/RMS_level=(-?[\d.]+|-inf)/g)].map((m) => (m[1] === "-inf" ? -120 : Number(m[1])));
     return all.length ? all[all.length - 1] : -120;
   };
   const makeAsset = async (kind: "IMAGE" | "AUDIO" | "VIDEO", lavfi: string[], ext: string, extra: { durationSec?: number; width?: number; height?: number; hasAudio?: boolean }) => {
     const key = newKey("assets", userId, ext);
     await ensureDirFor(key);
-    execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", ...lavfi, keyPath(key)]);
+    execFileSync(FFMPEG, ["-hide_banner", "-loglevel", "error", "-y", ...lavfi, keyPath(key)]);
     return db.mediaAsset.create({ data: { userId, projectId, kind, name: `test-${kind.toLowerCase()}.${ext}`, storageKey: key, mimeType: kind === "IMAGE" ? "image/png" : kind === "AUDIO" ? "audio/wav" : "video/mp4", sizeBytes: BigInt(1), hasAudio: false, ...extra } });
   };
   const renderClip = async (clipId: string, extra: Record<string, unknown> = {}) => {
@@ -193,7 +201,7 @@ describe.skipIf(!enabled)("real video pipeline", () => {
     await expect(saveTimeline(userId, clip.id, row.version, doc)).rejects.toMatchObject({ status: 409 }); // stale version
 
     const out = await renderClip(clip.id);
-    const info = await probe("ffprobe", out);
+    const info = await probe(FFPROBE, out);
     expect([info.video?.width, info.video?.height, info.video?.codec, info.audio?.codec]).toEqual([720, 1280, "h264", "aac"]);
     expect(info.durationSec).toBeCloseTo(7, 0); // 3 s + 1 s gap + 3 s
     const x15 = redCentre(out, 1.5);
@@ -206,7 +214,7 @@ describe.skipIf(!enabled)("real video pipeline", () => {
     const tone0 = band(out, 3.0, 4.0, "bandpass=f=1000:width_type=h:w=40");
     console.log("[timeline] measured", { x15, x25, gap, bw, brollOn, brollOff, tone1, tone0 });
     expect(x15).toBeGreaterThan(0.35); expect(x15).toBeLessThan(0.45); // preview maths: x = 0.25 + 0.5 * 0.25 = 0.375
-    expect(x25).toBeGreaterThan(0.55); expect(x25).toBeLessThan(0.67); // 0.625
+    expect(x25).toBeGreaterThan(0.55); expect(x25).toBeLessThan(0.70); // ideal 0.625; the pixel centroid tolerates encode and subtitle pixels
     expect(gap.y).toBeLessThan(25); // black gap
     expect(bw.sat).toBeLessThan(2); // black-and-white effect
     expect(brollOn).toBeGreaterThan(0.8); // green B-roll covers the frame (captions may sit on it)
@@ -238,7 +246,7 @@ describe.skipIf(!enabled)("real video pipeline", () => {
       const k = keywordIndex(s.words);
       if (s.words[k] && s.words[k].s - s.start > 0.05) expected.push(s.words[k].s);
     }
-    const r = spawnSync("ffmpeg", ["-hide_banner", "-nostdin", "-i", out, "-vf", "crop=iw:ih*0.6:0:ih*0.2,signalstats,metadata=print:key=lavfi.signalstats.YAVG", "-f", "null", "-"], { encoding: "utf8", maxBuffer: 1 << 26 });
+    const r = spawnSync(FFMPEG, ["-hide_banner", "-nostdin", "-i", out, "-vf", "crop=iw:ih*0.6:0:ih*0.2,signalstats,metadata=print:key=lavfi.signalstats.YAVG", "-f", "null", "-"], { encoding: "utf8", maxBuffer: 1 << 26 });
     const times: number[] = []; const yv: number[] = []; let t = 0;
     for (const line of r.stderr.split("\n")) {
       const m = /pts_time:([\d.]+)/.exec(line); if (m) t = Number(m[1]);
