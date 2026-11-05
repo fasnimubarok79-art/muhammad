@@ -27,7 +27,8 @@ if ($LASTEXITCODE -ne 0) {
   if ($LASTEXITCODE -ne 0) { Write-Host "Migration failed. Your data is in the backup above; see scripts\backup\RECOVERY.md." -ForegroundColor Red; exit 1 }
 }
 
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$Root'; `$host.UI.RawUI.WindowTitle = 'ClipKita-Pro web'; npm start"
+# Only this computer can open the web app (not other devices on the Wi-Fi): smaller attack surface.
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$Root'; `$host.UI.RawUI.WindowTitle = 'ClipKita-Pro web'; npm start -- -H 127.0.0.1"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$Root'; `$host.UI.RawUI.WindowTitle = 'ClipKita-Pro worker'; npm run worker"
 Start-Sleep -Seconds 8
 Start-Process "http://localhost:3000"

@@ -25,6 +25,8 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // next/image is not used; this turns the image optimisation endpoint (several 14.x advisories) off
+  images: { unoptimized: true },
   experimental: { serverComponentsExternalPackages: ["@prisma/client"] },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
