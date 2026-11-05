@@ -16,6 +16,7 @@ import { run, ProcessError } from "../src/lib/media/exec";
 import { displaySize, probe } from "../src/lib/media/probe";
 import { parseScenes, parseSilences, proposeClips, type Interval } from "../src/lib/media/clipping";
 import { buildSegments, DEFAULT_STYLE, IMPACT_STYLE, PUNCH_STYLE, sliceWords, toAss, type Segment, type SubtitleStyle, type Word } from "../src/lib/media/subtitles";
+import { cardEvents, CARD_STYLE_LINE, placeCards, type WordCard } from "../src/lib/media/cards";
 import { buildRenderArgs, keepIntervals, mapTime, outputSize, PRESETS, punchPlan, remapWords, verifyOutput, type Aspect, type Framing, type PresetId, type Resolution } from "../src/lib/media/render";
 import { detectFaceTrack, shiftTrack, trackCovers, type CachedTrack } from "../src/lib/media/faces";
 import { focusExpr as faceFocusExpr, type Keyframe } from "../src/lib/media/reframe";
@@ -298,6 +299,7 @@ export type RenderParams = {
   style?: Partial<SubtitleStyle>;
   trimStart?: number; // clip-relative seconds
   trimEnd?: number;
+  cards?: WordCard[];
 };
 
 export async function render(ctx: Ctx) {
@@ -336,7 +338,13 @@ export async function render(ctx: Ctx) {
   await mkdir(work, { recursive: true });
   try {
     let assPath: string | undefined;
-    if (params.burnSubtitles && clip.segments.length) {
+    // ASS coordinates use a fixed 1920px height; libass scales them to the real output size.
+    const size = outputSize(params.aspect, params.resolution);
+    const play = { w: Math.round((size.w / size.h) * 1920), h: 1920 };
+    const cards = placeCards(params.cards ?? [], tStart, winLen, outDur, (t) => mapTime(t, keep));
+    const cardLayer = cards.length ? { styles: [CARD_STYLE_LINE], events: cardEvents(cards, play) } : undefined;
+    const burnSubs = params.burnSubtitles && clip.segments.length > 0;
+    if (burnSubs || cardLayer) {
       const segs: Segment[] = clip.segments.map((s) => ({
         start: s.startSec - tStart,
         end: s.endSec - tStart,
@@ -350,14 +358,11 @@ export async function render(ctx: Ctx) {
           return { start: words[0].s, end: words[words.length - 1].e, text: words.map((w) => w.w).join(" "), words };
         })
         .filter((s): s is Segment => s !== null);
-      // ASS coordinates use a fixed 1920px height; libass scales them to the real output size.
-      const size = outputSize(params.aspect, params.resolution);
-      const play = { w: Math.round((size.w / size.h) * 1920), h: 1920 };
       const vertical = params.aspect === "9:16";
       const base: SubtitleStyle = { ...DEFAULT_STYLE, ...(preset.subtitle === "impact" ? IMPACT_STYLE : preset.subtitle === "punch" ? PUNCH_STYLE : {}), preset: preset.subtitle, ...params.style };
       const style = vertical ? base : { ...base, fontSize: Math.round(base.fontSize * 0.8), marginV: 230, maxCharsPerLine: 32 };
       assPath = path.join(work, "subs.ass");
-      await writeFile(assPath, toAss(remapped, style, play), "utf8");
+      await writeFile(assPath, toAss(burnSubs ? remapped : [], style, play, cardLayer), "utf8");
     }
 
     // follow-face reframing: reuse the cached track for this exact window or detect now

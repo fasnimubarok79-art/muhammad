@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/client";
+import type { WordCard } from "@/lib/media/cards";
 
 export type Word = { w: string; s: number; e: number; p?: number };
 export type Seg = { start: number; end: number; text: string; words: Word[] };
@@ -17,12 +18,13 @@ export type Config = {
   trimStart: number;
   trimEnd: number;
   style: Style;
+  cards: WordCard[];
 };
 export type Doc = { title: string; description: string; segments: Seg[]; config: Config };
 
 export const DEFAULT_STYLE: Style = { preset: "karaoke", fontSize: 84, primary: "#FFFFFF", highlight: "#FF7A1A", outline: 7, shadow: 3, marginV: 540 };
 export const defaultConfig = (len: number): Config => ({
-  preset: "viral_short", aspect: "9:16", resolution: "1080p", framing: "blur", cropX: 0.5, removeSilence: false, burnSubtitles: true, trimStart: 0, trimEnd: len, style: DEFAULT_STYLE,
+  preset: "viral_short", aspect: "9:16", resolution: "1080p", framing: "blur", cropX: 0.5, removeSilence: false, burnSubtitles: true, trimStart: 0, trimEnd: len, style: DEFAULT_STYLE, cards: [],
 });
 
 const LIMIT = 50;

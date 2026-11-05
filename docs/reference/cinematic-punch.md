@@ -27,9 +27,12 @@ The owner supplied one reference video on 2026-11-05. It is a vertical short wit
 | Font | Inter Black (OFL), already bundled in `worker/fonts` | |
 | Studio preview | Player draws the same context and keyword layout and timing | `src/components/studio/Player.tsx` |
 
+## Word cards (Phase 3)
+
+Full-frame text inserts like the reference's paper-grid and black cards, plus a red accent panel with a yellow side bar. Defined once in `src/lib/media/cards.ts`, burned in through the same ASS file as the subtitles (layers 10+, above captions), previewed by `CardView` in the Studio and edited in the "Cards" tab. The serif is Instrument Serif (SIL OFL, bundled in `worker/fonts` and `public/fonts`); no font, image or text from the reference was used.
+
 ## Not implemented (deliberately)
 
-- Word cards (paper-grid or black interstitials): they need a card template system and a timeline lane for inserts.
 - B-roll: no licensed stock source. `FEATURES.bRoll` stays false.
 - Light-leak and blur transitions: only the flash is done.
 - Stickers, emoji and gradient text.

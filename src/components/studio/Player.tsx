@@ -5,6 +5,8 @@ import { fmtTime } from "@/lib/client";
 import type { Config, Seg } from "./useEditor";
 import { cropFraction, focusAt, type Keyframe } from "@/lib/media/reframe";
 import { keywordIndex, PUNCH_COLORS, PUNCH_KEYWORD_SCALE } from "@/lib/media/subtitles";
+import { activeCard } from "@/lib/media/cards";
+import { CardView } from "./CardView";
 
 export type ClientTrack = { start: number; end: number; keyframes: Keyframe[]; sampled: number; withFace: number; detector: string };
 
@@ -96,8 +98,11 @@ export const Player = forwardRef<PlayerHandle, Props>(function Player({ sourceId
     }
   }, [volume, muted]);
 
-  const sub = subs ? activeSubtitle(segments, t) : null;
+  const card = activeCard(config.cards, t);
+  // a card covers the caption in the render too (it sits on a higher ASS layer)
+  const sub = subs && !card && config.burnSubtitles ? activeSubtitle(segments, t) : null;
   const ratio = RATIO[config.aspect];
+  const playW = Math.round(ratio * 1920);
   const fit = config.framing === "crop" || config.framing === "follow" ? "cover" : "contain";
   // follow framing: same maths as the renderer, so the preview frames the face like the export
   const focus =
@@ -135,6 +140,7 @@ export const Player = forwardRef<PlayerHandle, Props>(function Player({ sourceId
             onError={() => { setError("The video could not be loaded."); setLoading(false); }}
             onClick={toggle}
           />
+          {card && <CardView key={card.id} card={card} playW={playW} />}
           {sub && (
             <div className="pointer-events-none absolute inset-x-[7%] flex justify-center" style={{ bottom: `${bottomPct}%` }}>
               {config.style.preset === "punch" ? (() => {

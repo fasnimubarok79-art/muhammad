@@ -4,10 +4,12 @@ Read this first at the start of every session. One phase per session.
 
 ## Current phase
 
-**Phase 2: Cinematic Punch preset** tuned to the owner's reference video. Done and merged to `main`. Notes: `docs/reference/cinematic-punch.md`.
-**Next: Phase 3** (proposed): audit report page (topics, moment map from stored silences/scenes, source audio/video quality), then word-card inserts for Cinematic Punch.
+**Phase 3: video audit report + word cards.** Done and merged to `main`.
+**Next: Phase 4** (proposed): professional editor core. It needs a multi-track timeline data model, which is a database change, so it waits for owner approval (see "Master continuation prompt" below).
 
-Phases: 0 audit (done, `feat/clipkita-pro-phase-0`), 1 rebrand and flags (done, `feat/clipkita-pro-phase-1`), 2 Cinematic Punch (done, `feat/clipkita-pro-phase-2`).
+Phases: 0 audit (done, `feat/clipkita-pro-phase-0`), 1 rebrand and flags (done, `feat/clipkita-pro-phase-1`), 2 Cinematic Punch (done, `feat/clipkita-pro-phase-2`), 3 audit report and word cards (done, `feat/clipkita-pro-phase-3`).
+
+This file is the single status document. `README.md` covers architecture and setup, `CHANGELOG.md` the release notes, `RECOVERY.md` backup and recovery, `docs/reference/` the style references. The continuation prompt's list (PROJECT_STATUS, HANDOVER, TEST_REPORT and so on) maps onto these files instead of new duplicates.
 
 ## Master prompt received
 
@@ -54,9 +56,9 @@ Legend: DONE (implemented and tested), PARTIAL, MISSING, CONFLICT (differs from 
 | 2. YouTube URL: official metadata, captions via owner OAuth, file by upload | CONFLICT | Current build downloads public videos with yt-dlp after a rights checkbox (owner request on 2026-11-02). The new prompt says official path only and file by upload |
 | 3. Rights checkbox stored with time and IP | PARTIAL | Checkbox required; stored in the audit log with time and IP, not on the project row |
 | 4. Background audit with live per-stage progress | PARTIAL | DB queue + polling; stages validate, download, analyze, transcribe, clip. No scene/face/LLM stage in analysis; no SSE |
-| 5. Audit report (topics, moment map, speakers, source quality) | MISSING | Silences and scenes are stored but not shown as a report; no diarization |
+| 5. Audit report (topics, moment map, speakers, source quality) | PARTIAL | `/projects/[id]/audit/[sourceId]` + `GET /api/sources/[id]/audit` (JSON download): live ffprobe, speech stats, pauses, scenes, cut points, highlights, B-roll windows, moment map. No topics, no speaker diarization, no PDF |
 | 6. 5 to 20 clips with title, hook, description, scores, reasons, transcript, platforms | DONE | Clip detection v2 |
-| 7. Presets Cinematic Punch, Clean Podcast, Edu Explainer | PARTIAL | Cinematic Punch done from the reference video (no word cards or B-roll yet). Clean Podcast and Edu Explainer map to the existing `cinematic_podcast` and `educational` presets |
+| 7. Presets Cinematic Punch, Clean Podcast, Edu Explainer | PARTIAL | Cinematic Punch done from the reference video, with word cards (no B-roll yet). Clean Podcast and Edu Explainer map to the existing `cinematic_podcast` and `educational` presets |
 | 7. Reframe, animated captions, zoom, color grade, audio enhancement | DONE | Follow-face reframe, karaoke/pop/impact captions, zoom, grade, loudnorm |
 | 7. Transitions | MISSING | |
 | 8. Timeline editor: timestamps, trim, split, subtitle style, crop | DONE | |
@@ -80,6 +82,22 @@ Legend: DONE (implemented and tested), PARTIAL, MISSING, CONFLICT (differs from 
 | Style reference video | DONE | Owner uploaded it on 2026-11-05. Patterns in `docs/reference/cinematic-punch.md`; the file and its assets are not committed |
 | Pinterest reference engine, AI style matching, live video import, backup/failover addendum | SPEC MISSING | Headings only. Note: Pinterest content is only usable through its official API with app approval |
 
+## Master continuation prompt (2026-11-05): status against its phases
+
+Statuses use the prompt's terms. "Verified" means tested in this repo with the evidence listed in the log.
+
+| Prompt phase | Status | What exists / what is missing |
+|---|---|---|
+| 3. Video audit report | VERIFIED WORKING (partial scope) | File, codecs, aspect, fps, size, speech, language, pauses, scenes, cut points, highlights, B-roll windows, subtitle counts, JSON export. Missing: PDF export, topics |
+| 3. Word cards | VERIFIED WORKING | Grid, paper, black, accent backgrounds; serif or bold sans; size, height, colours, fade/pop/cut; Studio "Cards" tab, timeline lane (drag to move), preview, autosave, undo; burned in by the worker via ASS |
+| 4. Professional editor | PARTIALLY WORKING | Exists: trim handles, subtitle lane (move edges, split, delete), snap, zoom, 50-step undo/redo, local + server autosave, draft recovery, shortcuts (Space, S, Delete, Ctrl+Z/Y/S, arrows). Missing: media library, multi-track video/audio/overlay/B-roll, drag-and-drop media, duplicate, ripple delete, track lock/mute/hide, multi-select, markers, transform and keyframes, speed, frame stepping, audio replacement, proxy preview. **Needs a timeline data model (DB change): owner approval first** |
+| 5. AI clip generator | PARTIALLY WORKING | Upload, link import (yt-dlp, rights checkbox), ffprobe, Whisper word times, silences, scenes, hook/engagement scores with reasons, 5 to 20 candidates, edit before render. Missing: semantic highlight model (no LLM configured), transcript editor on the source level |
+| 6. Subtitles and effects | PARTIALLY WORKING | 5 animations, colours, size, outline, shadow, position, SRT/VTT in and out, Cinematic Punch. Missing: font family choice, Cinematic Punch sliders (zoom, flash, vignette), saved custom presets, light leak, grain, PiP, split screen |
+| 7. Website and dashboard | PARTIALLY WORKING | Landing with a playing demo, dashboard, gallery, projects (rename, delete), export history, tokens. Missing: duplicate/archive projects, before/after showcase from a real render |
+| 8. Render and export | PARTIALLY WORKING | 9:16, 16:9, 1:1; 450p/720p/1080p; H.264 + AAC; queue states, cancel, ffprobe verification. Missing: 4:5, quality presets, GPU encode (NVENC not verified on the owner's laptop), concurrency setting in the UI |
+| 10. Tokens | VERIFIED WORKING | Backend ledger, idempotency, refunds, owner unlimited (Phase 0/1 evidence) |
+| 13. Demo project "CLIPKITA CINEMATIC PUNCH DEMO" | BLOCKED | Needs talking-head footage the owner has the rights to. The reference video may not be used. Place a file in `tests/fixtures/owner/` and it can be rendered through the pipeline |
+
 ## Owner decisions (2026-11-04)
 
 1. Architecture: **keep** Next.js + Node worker + PostgreSQL queue. Add Redis/FastAPI only when a feature needs it.
@@ -100,3 +118,4 @@ Legend: DONE (implemented and tested), PARTIAL, MISSING, CONFLICT (differs from 
 - 2026-11-04 Phase 0 audit written; branch created; `tests/fixtures/owner/` added and ignored.
 - 2026-11-04 Phase 1: rebrand, CKP_ env names, owner name, feature flags. Evidence: rebrand grep empty, 100 unit/integration tests, 67 API E2E checks, build, CKP_-only env run, browser check of 11 pages (no banned labels, no console errors).
 - 2026-11-05 Phase 2: Cinematic Punch preset (punch captions with keyword pop-in, punch-in zoom on sentence starts, flash cuts, warm grade), Studio preview and options. Evidence: subtitle sync worst 30 ms, real sample render passed ffprobe and full decode, `tests/punch.test.ts`, full verify suite.
+- 2026-11-05 Phase 3: video audit report (page, API, JSON download) and word cards (render, preview, editor, timeline lane), bundled Instrument Serif (OFL). Evidence: `tests/cards.test.ts`, `tests/audit.test.ts`, worker render with a paper card measured in the output (luma 219.6 on the card vs 123.7 off), browser checks (15 passed: ownership 404/401, overflow at 1440 and 390, preview font, autosave, undo, no console errors), API E2E 67/67, subtitle sync still 30 ms, 113 unit tests, build.

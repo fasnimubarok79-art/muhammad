@@ -173,9 +173,9 @@ export function assColor(hex: string, alpha = 0) {
   return `&H${alpha.toString(16).padStart(2, "0").toUpperCase()}${b}${g}${r}`.toUpperCase();
 }
 
-const assText = (s: string) => s.replace(/\\/g, "＼").replace(/[{}]/g, (c) => (c === "{" ? "｛" : "｝"));
+export const assText = (s: string) => s.replace(/\\/g, "＼").replace(/[{}]/g, (c) => (c === "{" ? "｛" : "｝"));
 
-function assTime(sec: number) {
+export function assTime(sec: number) {
   const cs = Math.max(0, Math.round(sec * 100));
   const h = Math.floor(cs / 360000);
   const m = Math.floor((cs % 360000) / 6000);
@@ -187,7 +187,8 @@ function assTime(sec: number) {
  * Build an ASS script. Karaoke/pop presets emit one event per word so the highlighted word
  * switches exactly at the word timestamps from the transcript.
  */
-export function toAss(segs: Segment[], style: SubtitleStyle, play = { w: 1080, h: 1920 }) {
+/** `extra` adds styles and events from other burned-in layers (word cards) to the same script. */
+export function toAss(segs: Segment[], style: SubtitleStyle, play = { w: 1080, h: 1920 }, extra: { styles: string[]; events: string[] } = { styles: [], events: [] }) {
   let punchIdx = 0;
   const header = [
     "[Script Info]",
@@ -200,6 +201,7 @@ export function toAss(segs: Segment[], style: SubtitleStyle, play = { w: 1080, h
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
     `Style: Main,${style.fontName},${style.fontSize},${assColor(style.primary)},${assColor(style.highlight)},&H00000000,&H96000000,${/black|extrabold|heavy/i.test(style.fontName) ? 0 : -1},0,0,0,100,100,0,0,1,${style.outline},${style.shadow},2,80,80,${style.marginV},1`,
+    ...extra.styles,
     "",
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
@@ -247,5 +249,6 @@ export function toAss(segs: Segment[], style: SubtitleStyle, play = { w: 1080, h
       events.push(`Dialogue: 0,${assTime(start)},${assTime(end)},Main,,0,0,0,,${render(i)}`);
     });
   }
+  events.push(...extra.events);
   return header.join("\n") + "\n" + events.join("\n") + "\n";
 }

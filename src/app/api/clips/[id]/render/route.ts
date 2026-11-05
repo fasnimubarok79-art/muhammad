@@ -5,6 +5,7 @@ import { ownedClip } from "@/lib/access";
 import { audit } from "@/lib/audit";
 import { ApiError, authedRoute, json, parseJson } from "@/lib/http";
 import { publicJob } from "@/lib/jobs";
+import { cardsSchema } from "@/lib/media/cards";
 import { PRESETS } from "@/lib/media/render";
 import { RATE } from "@/lib/rate-limit";
 import { renderCost, reserve } from "@/lib/tokens";
@@ -22,6 +23,7 @@ const Params = z.object({
   burnSubtitles: z.boolean().default(true),
   trimStart: z.number().min(0).optional(),
   trimEnd: z.number().positive().optional(),
+  cards: cardsSchema.optional(),
   style: z
     .object({
       preset: z.enum(["karaoke", "clean", "pop", "impact", "punch"]),

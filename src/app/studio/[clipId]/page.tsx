@@ -6,6 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { Wordmark } from "@/components/app/AppShell";
 import { useSession } from "@/components/app/session";
 import { AiPanel } from "@/components/studio/AiPanel";
+import { CardPanel } from "@/components/studio/CardPanel";
 import { ExportDialog } from "@/components/studio/ExportDialog";
 import { Inspector, SubtitleList, type FaceStatus } from "@/components/studio/Panels";
 import { Player, type ClientTrack, type PlayerHandle } from "@/components/studio/Player";
@@ -14,6 +15,7 @@ import { defaultConfig, splitAt, useEditor, type Config, type Doc, type Seg } fr
 import { ErrorNote, Spinner } from "@/components/ui/bits";
 import { useToast } from "@/components/ui/use-toast";
 import { api } from "@/lib/client";
+import { cardSchema, type WordCard } from "@/lib/media/cards";
 import { useMedia } from "@/hooks/useMedia";
 
 type ClipResp = {
@@ -33,7 +35,7 @@ function Studio({ clipId }: { clipId: string }) {
   const [peaks, setPeaks] = useState<number[]>([]);
   const [time, setTime] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
-  const [leftTab, setLeftTab] = useState<"subs" | "ai">("subs");
+  const [leftTab, setLeftTab] = useState<"subs" | "cards" | "ai">("subs");
   const [exporting, setExporting] = useState(search.get("panel") === "export");
   const player = useRef<PlayerHandle>(null);
   const lastT = useRef(0);
@@ -63,6 +65,8 @@ function Studio({ clipId }: { clipId: string }) {
     const saved = data.clip.editConfig ?? {};
     const config: Config = { ...base, ...saved, style: { ...base.style, ...(saved.style ?? {}) } };
     config.trimEnd = Math.min(config.trimEnd || clipLen, clipLen);
+    // drop malformed cards instead of failing the render later
+    config.cards = (Array.isArray(saved.cards) ? saved.cards : []).flatMap((c) => { const r = cardSchema.safeParse(c); return r.success ? [r.data] : []; });
     return { title: data.clip.title, description: data.clip.description ?? "", segments: data.segments.map((s) => ({ start: s.start, end: s.end, text: s.text, words: s.words ?? [] })), config };
   }, [data, clipLen]);
   const ed = useEditor(clipId, initial, data?.clip.updatedAt ?? null);
@@ -102,6 +106,7 @@ function Studio({ clipId }: { clipId: string }) {
   const setConfig = useCallback((c: Partial<Config>, group = false) => ed.commit((d) => ({ ...d, config: { ...d.config, ...c } }), group), [ed]);
   const setDoc = useCallback((p: Partial<Doc>, group = false) => ed.commit((d) => ({ ...d, ...p }), group), [ed]);
   const setSegments = useCallback((segs: Seg[], group = false) => ed.commit((d) => ({ ...d, segments: segs }), group), [ed]);
+  const setCards = useCallback((cards: WordCard[], group = false) => ed.commit((d) => ({ ...d, config: { ...d.config, cards } }), group), [ed]);
 
   // keyboard: Space play/pause, S split, Delete remove line, Ctrl+Z / Ctrl+Shift+Z, arrows nudge
   useEffect(() => {
@@ -181,12 +186,12 @@ function Studio({ clipId }: { clipId: string }) {
       <div className="grid min-h-0 flex-1" style={{ gridTemplateColumns: "280px minmax(0,1fr) 320px", gridTemplateRows: "minmax(0,1fr) 240px" }}>
         <aside className="row-span-1 flex min-h-0 flex-col border-r border-line bg-surface">
           <div role="tablist" aria-label="Left panel" className="flex border-b border-line">
-            {([["subs", "Subtitles"], ["ai", "AI Editor Pro"]] as const).map(([k, l]) => (
+            {([["subs", "Subtitles"], ["cards", "Cards"], ["ai", "AI Editor Pro"]] as const).map(([k, l]) => (
               <button key={k} role="tab" aria-selected={leftTab === k} onClick={() => setLeftTab(k)} className={`flex-1 py-2 text-[12px] font-semibold ${leftTab === k ? "border-b-2 border-edit text-ink" : "text-muted"}`}>{l}</button>
             ))}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto" role="tabpanel">
-            {leftTab === "subs" ? subsEl : (
+            {leftTab === "subs" ? subsEl : leftTab === "cards" ? <CardPanel doc={doc} time={time} onCards={setCards} onSeek={seek} /> : (
               <AiPanel doc={doc} clipId={clipId} sourceId={data.source.id} score={data.clip.score} reasons={data.clip.scoreReasons ?? []} hashtags={data.suggestions.hashtags} silences={data.silences} srcSize={srcSize} onDoc={setDoc} onConfig={setConfig} onCaptionsRegenerated={load} onFollowFace={() => { setConfig({ framing: "follow" }); if (face.state !== "ready" && face.state !== "detecting") void detectFaces(); }} />
             )}
           </div>
@@ -207,6 +212,7 @@ function Studio({ clipId }: { clipId: string }) {
             onSelect={setSelected}
             onSeek={seek}
             onSegments={(s, g) => setSegments(s, g)}
+            onCards={setCards}
             onTrim={(a, b, g) => setConfig({ trimStart: Number(a.toFixed(3)), trimEnd: Number(b.toFixed(3)) }, g)}
           />
         </section>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import { fmtTime } from "@/lib/client";
+import type { WordCard } from "@/lib/media/cards";
 import { retime, type Config, type Seg } from "./useEditor";
 
 type Props = {
@@ -16,6 +17,7 @@ type Props = {
   onSeek: (t: number) => void;
   onSegments: (segs: Seg[], group: boolean) => void;
   onTrim: (start: number, end: number, group: boolean) => void;
+  onCards: (cards: WordCard[], group: boolean) => void;
 };
 
 const SNAP_PX = 6;
@@ -29,7 +31,7 @@ function Track({ label, children, h = 40, full }: { label: string; children: Rea
   );
 }
 
-export function Timeline({ clipLen, time, segments, config, silences, peaks, selected, onSelect, onSeek, onSegments, onTrim }: Props) {
+export function Timeline({ clipLen, time, segments, config, silences, peaks, selected, onSelect, onSeek, onSegments, onTrim, onCards }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -190,6 +192,29 @@ export function Timeline({ clipLen, time, segments, config, silences, peaks, sel
                 <span className="pointer-events-none truncate">{s.text}</span>
                 <span className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize bg-edit/0 hover:bg-edit" onPointerDown={moveSegEdge(i, "start")} />
                 <span className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize bg-edit/0 hover:bg-edit" onPointerDown={moveSegEdge(i, "end")} />
+              </div>
+            ))}
+          </Track>
+          <Track full={full} label="Cards" h={30}>
+            {(config.cards ?? []).map((c) => (
+              <div
+                key={c.id}
+                data-noseek
+                className="absolute inset-y-1 cursor-grab overflow-hidden rounded border border-line px-1.5 text-[11px] leading-[20px] hover:border-muted active:cursor-grabbing"
+                style={{ left: x(c.at), width: Math.max(6, x(c.dur)), background: c.bg, color: c.color, fontFamily: c.font === "serif" ? '"Instrument Serif", Georgia, serif' : undefined, fontStyle: c.italic ? "italic" : undefined }}
+                title={`Card: ${c.text} (drag to move)`}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  const off = timeFromEvent(e) - c.at;
+                  const cards = config.cards ?? [];
+                  onSeek(c.at);
+                  drag(e, (t, first) => {
+                    const at = Math.max(0, Math.min(clipLen - c.dur, t - off));
+                    onCards(cards.map((k) => (k.id === c.id ? { ...k, at: Number(at.toFixed(3)) } : k)), !first);
+                  });
+                }}
+              >
+                <span className="pointer-events-none truncate">{c.text}</span>
               </div>
             ))}
           </Track>

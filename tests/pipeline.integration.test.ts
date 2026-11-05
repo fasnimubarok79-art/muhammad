@@ -4,11 +4,13 @@
  * Requires TEST_VIDEO (a video file with speech) plus a working WHISPER_MODEL; skipped otherwise.
  */
 import { copyFile, rm } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
 import { ensureDirFor, keyPath, newKey } from "@/lib/storage";
 import { probe } from "@/lib/media/probe";
+import { newCard } from "@/lib/media/cards";
 import { runJob } from "../worker/pipeline";
 
 const VIDEO = process.env.TEST_VIDEO;
@@ -90,12 +92,12 @@ describe.skipIf(!enabled)("real video pipeline", () => {
     expect(info.audio?.codec).toBe("aac");
     console.log("[pipeline] render:", JSON.stringify({ key: done.outputKey, dur: info.durationSec, fps: info.video?.fps, meta: done.outputMeta }));
   }, 600_000);
-  it("renders the cinematic_punch preset (punch captions, punch-in zoom, flash) end to end", async () => {
+  it("renders the cinematic_punch preset (punch captions, punch-in zoom, flash, word card) end to end", async () => {
     const clip = await db.clip.findFirstOrThrow({ where: { sourceVideoId: sourceId }, orderBy: { score: "desc" } });
     const job = await db.renderJob.create({
       data: {
         userId, projectId, clipId: clip.id, kind: "RENDER", status: "validating",
-        params: { resolution: "1080p", aspect: "9:16", framing: "blur", cropX: 0.5, preset: "cinematic_punch", removeSilence: false, burnSubtitles: true },
+        params: { resolution: "1080p", aspect: "9:16", framing: "blur", cropX: 0.5, preset: "cinematic_punch", removeSilence: false, burnSubtitles: true, cards: [{ ...newCard(1, "lebih", "paper"), dur: 1.2 }] },
       },
     });
     await runJob(job, new AbortController().signal);
@@ -106,5 +108,15 @@ describe.skipIf(!enabled)("real video pipeline", () => {
     expect(info.video?.width).toBe(1080);
     expect(info.video?.height).toBe(1920);
     expect(info.audio?.codec).toBe("aac");
+    // the paper card (1.0s to 2.2s) is really in the pixels: a bright frame, unlike the speaker footage
+    const yavg = (t: number) => {
+      const r = spawnSync("ffmpeg", ["-hide_banner", "-nostdin", "-ss", String(t), "-i", keyPath(done.outputKey!), "-frames:v", "1", "-vf", "signalstats,metadata=print:key=lavfi.signalstats.YAVG", "-f", "null", "-"], { encoding: "utf8" });
+      return Number(/YAVG=([\d.]+)/.exec(r.stderr)?.[1] ?? NaN);
+    };
+    const onCard = yavg(1.6);
+    const offCard = yavg(3.5);
+    console.log("[pipeline] card luma", { onCard, offCard });
+    expect(onCard).toBeGreaterThan(200);
+    expect(onCard - offCard).toBeGreaterThan(60);
   }, 600_000);
 });

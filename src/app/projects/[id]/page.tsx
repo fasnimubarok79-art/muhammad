@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useState } from "react";
 import { AppShell } from "@/components/app/AppShell";
 import { ClipGallery } from "@/components/app/ClipGallery";
@@ -113,6 +114,7 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
                             )}
                           </div>
                         )}
+                        <Link href={`/projects/${data.project.id}/audit/${s.id}`} className="btn-ghost mr-3 mt-1 inline-flex h-8 items-center px-0 text-[12px]">Audit report</Link>
                         {s.hasMedia && !running && (
                           <button
                             className="btn-ghost mt-1 h-8 px-0 text-[12px]"
