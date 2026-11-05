@@ -6,7 +6,7 @@ import { env } from "./env";
 const KEY_RE = /^[a-z]+\/[A-Za-z0-9_-]+\/[A-Za-z0-9_.-]+$/;
 
 /** Storage keys are generated server-side only: "<area>/<ownerId>/<random>.<ext>". */
-export function newKey(area: "sources" | "renders" | "thumbs" | "audio" | "work", ownerId: string, ext: string) {
+export function newKey(area: "sources" | "renders" | "thumbs" | "audio" | "work" | "assets", ownerId: string, ext: string) {
   const safeExt = ext.replace(/[^a-z0-9]/gi, "").toLowerCase().slice(0, 5) || "bin";
   return `${area}/${ownerId.replace(/[^A-Za-z0-9_-]/g, "")}/${Date.now()}-${randomToken(9)}.${safeExt}`;
 }

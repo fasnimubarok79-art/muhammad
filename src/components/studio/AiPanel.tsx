@@ -14,12 +14,14 @@ type Props = {
   score: number | null;
   reasons: Reason[];
   hashtags: string[];
-  silences: Array<{ start: number; end: number }>;
   srcSize: { w: number; h: number } | null;
   onDoc: (d: Partial<Doc>) => void;
   onConfig: (c: Partial<Config>) => void;
   onCaptionsRegenerated: () => void;
   onFollowFace: () => void;
+  length: number; // timeline seconds
+  silenceSec: number; // pauses still on the main track
+  onCutSilences: () => void;
 };
 
 const FACTOR: Record<string, string> = {
@@ -71,7 +73,7 @@ const sentencesOf = (segs: Seg[]) =>
     .map((s) => s.trim())
     .filter((s) => s.length > 8);
 
-export function AiPanel({ doc, clipId, sourceId, score, reasons, hashtags, silences, srcSize, onDoc, onConfig, onCaptionsRegenerated, onFollowFace }: Props) {
+export function AiPanel({ doc, clipId, sourceId, score, reasons, hashtags, srcSize, onDoc, onConfig, onCaptionsRegenerated, onFollowFace, length, silenceSec, onCutSilences }: Props) {
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
   const sents = useMemo(() => sentencesOf(doc.segments), [doc.segments]);
@@ -83,16 +85,16 @@ export function AiPanel({ doc, clipId, sourceId, score, reasons, hashtags, silen
     if (sents.length > 2) out.push(`${sents[sents.length - 1]}${tags ? `\n\n${tags}` : ""}`);
     return out;
   }, [sents, hashtags]);
-  const removable = silences.filter((s) => s.end - s.start >= 0.6).reduce((a, s) => a + Math.max(0, s.end - s.start - 0.24), 0);
+  const removable = silenceSec;
   const landscape = srcSize ? srcSize.w > srcSize.h : false;
-  const len = doc.config.trimEnd - doc.config.trimStart;
+  const len = length;
   const smart: Partial<Config> = {
     aspect: "9:16",
     resolution: "1080p",
     framing: landscape ? "follow" : "crop",
     preset: len > 45 ? "educational" : "viral_spotlight",
-    removeSilence: removable > 1,
   };
+  const cutToo = removable > 1;
 
   const run = async (key: string, fn: () => Promise<void>) => {
     setBusy(key);
@@ -143,8 +145,8 @@ export function AiPanel({ doc, clipId, sourceId, score, reasons, hashtags, silen
       </Tool>
 
       <Tool title="Silence Removal">
-        <p className="mb-2">About {removable.toFixed(1)}s of pauses longer than 0.6s were detected in this clip.</p>
-        <label className="flex items-center gap-2 text-ink"><input type="checkbox" className="accent-[#3DDC97]" checked={doc.config.removeSilence} onChange={(e) => onConfig({ removeSilence: e.target.checked })} /> Cut them in the render</label>
+        <p className="mb-2">{removable >= 0.3 ? `About ${removable.toFixed(1)}s of pauses longer than 0.6s are still on the main track.` : "No pauses longer than 0.6s are left on the main track."}</p>
+        <button className="btn-secondary h-7 px-2 text-[12px]" disabled={removable < 0.3} onClick={onCutSilences}>Cut them now</button>
       </Tool>
 
       <Tool title="Smart Reframe" tag="face tracking">
@@ -157,8 +159,8 @@ export function AiPanel({ doc, clipId, sourceId, score, reasons, hashtags, silen
       </Tool>
 
       <Tool title="Smart Export">
-        <p className="mb-2">Suggested: {smart.aspect}, {smart.resolution}, {smart.framing === "follow" ? "follow face" : "crop"}, {PRESET_INFO[smart.preset!].label}{smart.removeSilence ? ", silence removal on" : ""}.</p>
-        <button className="btn-secondary h-7 px-2 text-[12px]" onClick={() => { onConfig({ ...smart, style: styleFor(PRESET_INFO[smart.preset!].subtitle, doc.config.style) }); toast({ tone: "success", title: "Export settings applied" }); }}>Apply suggestion</button>
+        <p className="mb-2">Suggested: {smart.aspect}, {smart.resolution}, {smart.framing === "follow" ? "follow face" : "crop"}, {PRESET_INFO[smart.preset!].label}{cutToo ? ", cut silences" : ""}.</p>
+        <button className="btn-secondary h-7 px-2 text-[12px]" onClick={() => { onConfig({ ...smart, style: styleFor(PRESET_INFO[smart.preset!].subtitle, doc.config.style) }); if (cutToo) onCutSilences(); toast({ tone: "success", title: "Export settings applied" }); }}>Apply suggestion</button>
       </Tool>
 
       <Tool title="Auto Clip">

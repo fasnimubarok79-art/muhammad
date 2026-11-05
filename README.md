@@ -38,6 +38,7 @@ python3 -m venv .venv && .venv/bin/pip install -r worker/stt/requirements.txt
 ```
 ```bash
 npm run build && npm start      # web di :3000
+# setelah git pull: npm ci, npm run backup, npm run db:migrate, npm run build (start-windows.ps1 menjalankan backup + migrate otomatis)
 ```
 ```bash
 npm run worker                  # di terminal lain
@@ -158,6 +159,6 @@ Tes E2E mengganti password owner. Jalankan hanya pada database uji.
 - Publikasi langsung ke TikTok/YouTube/Instagram/Facebook: alur OAuth (PKCE + state) sudah ditulis tetapi **belum diuji** dengan aplikasi platform sungguhan; upload via API belum diimplementasikan. Publish Studio menyediakan export + panduan manual.
 - Email reset password: token dan alurnya bekerja, tetapi transport email belum diimplementasikan (`SMTP_URL`).
 - Reframe Follow face: mengikuti wajah terbesar (subjek utama). Bila beberapa orang terlihat, belum memilih berdasarkan siapa yang sedang bicara.
-- Editor: track subtitle, trim, framing, preset, waveform, undo/redo, autosave sudah berfungsi. Overlay teks/gambar/logo, sticker, transisi antar-klip, efek per-segmen, speed control, dan multi-track video belum ada.
+- Editor (Phase 4): timeline multi-track (video utama, B-roll, overlay, teks, efek, audio, subtitle, kartu kata), media library, move/trim/split/duplicate/hapus/ripple delete, lock/mute/hide track, marker, keyframe posisi/skala/opacity/volume (linear dan ease), speed 0,25–4×, undo/redo, autosave dengan cek versi. Preview browser adalah perkiraan; grade warna dan blur di preview memakai filter CSS, hasil render FFmpeg adalah acuan. Belum ada: sticker, transisi antar-klip (selain flash), light leak, rotasi/crop pada video utama dengan keyframe, ganti audio sumber, proxy preview untuk file besar.
 - AI Script, judul/caption generatif: belum ada provider LLM. Saran judul/caption/hashtag saat ini diambil dari transkrip asli, bukan dikarang.
 - Dockerfile belum pernah di-build dan dites.

@@ -4,10 +4,10 @@ Read this first at the start of every session. One phase per session.
 
 ## Current phase
 
-**Phase 3: video audit report + word cards.** Done and merged to `main`.
-**Next: Phase 4** (proposed): professional editor core. It needs a multi-track timeline data model, which is a database change, so it waits for owner approval (see "Master continuation prompt" below).
+**Phase 4: professional video editor core.** Done and merged to `main`. Additive migration approved by the owner on 2026-11-05 (`docs/migrations/phase-4-timeline.md`).
+**Next: Phase 5** (proposed): AI clip generator pro (semantic highlights need an LLM provider decision), then Phase 6 subtitle studio and effect controls.
 
-Phases: 0 audit (done, `feat/clipkita-pro-phase-0`), 1 rebrand and flags (done, `feat/clipkita-pro-phase-1`), 2 Cinematic Punch (done, `feat/clipkita-pro-phase-2`), 3 audit report and word cards (done, `feat/clipkita-pro-phase-3`).
+Phases: 0 audit (done, `feat/clipkita-pro-phase-0`), 1 rebrand and flags (done, `feat/clipkita-pro-phase-1`), 2 Cinematic Punch (done, `feat/clipkita-pro-phase-2`), 3 audit report and word cards (done, `feat/clipkita-pro-phase-3`), 4 editor core (done, `feat/clipkita-pro-phase-4`).
 
 This file is the single status document. `README.md` covers architecture and setup, `CHANGELOG.md` the release notes, `RECOVERY.md` backup and recovery, `docs/reference/` the style references. The continuation prompt's list (PROJECT_STATUS, HANDOVER, TEST_REPORT and so on) maps onto these files instead of new duplicates.
 
@@ -62,7 +62,7 @@ Legend: DONE (implemented and tested), PARTIAL, MISSING, CONFLICT (differs from 
 | 7. Reframe, animated captions, zoom, color grade, audio enhancement | DONE | Follow-face reframe, karaoke/pop/impact captions, zoom, grade, loudnorm |
 | 7. Transitions | MISSING | |
 | 8. Timeline editor: timestamps, trim, split, subtitle style, crop | DONE | |
-| 8. Zoom keyframes, B-roll, music, watermark | MISSING | |
+| 8. Zoom keyframes, B-roll, music, watermark | PARTIAL | Keyframes (position, scale, opacity, volume), B-roll and overlays from the user's own library, music on audio tracks. No watermark, no stock B-roll |
 | 9. Quality audit 0 to 100 with auto-fix | MISSING | |
 | 10. Export one clip with progress and download | DONE | 450p/720p/1080p, ffprobe-verified |
 | 10. Batch export, 4K, completion notification | PARTIAL | Bell shows finished jobs; no batch, no 4K |
@@ -90,13 +90,39 @@ Statuses use the prompt's terms. "Verified" means tested in this repo with the e
 |---|---|---|
 | 3. Video audit report | VERIFIED WORKING (partial scope) | File, codecs, aspect, fps, size, speech, language, pauses, scenes, cut points, highlights, B-roll windows, subtitle counts, JSON export. Missing: PDF export, topics |
 | 3. Word cards | VERIFIED WORKING | Grid, paper, black, accent backgrounds; serif or bold sans; size, height, colours, fade/pop/cut; Studio "Cards" tab, timeline lane (drag to move), preview, autosave, undo; burned in by the worker via ASS |
-| 4. Professional editor | PARTIALLY WORKING | Exists: trim handles, subtitle lane (move edges, split, delete), snap, zoom, 50-step undo/redo, local + server autosave, draft recovery, shortcuts (Space, S, Delete, Ctrl+Z/Y/S, arrows). Missing: media library, multi-track video/audio/overlay/B-roll, drag-and-drop media, duplicate, ripple delete, track lock/mute/hide, multi-select, markers, transform and keyframes, speed, frame stepping, audio replacement, proxy preview. **Needs a timeline data model (DB change): owner approval first** |
+| 4. Professional editor | VERIFIED WORKING (core) | Phase 4, see below. Missing: proxy preview for large files, audio replacement of the source, stickers, transitions other than flash, waveform for library audio |
 | 5. AI clip generator | PARTIALLY WORKING | Upload, link import (yt-dlp, rights checkbox), ffprobe, Whisper word times, silences, scenes, hook/engagement scores with reasons, 5 to 20 candidates, edit before render. Missing: semantic highlight model (no LLM configured), transcript editor on the source level |
 | 6. Subtitles and effects | PARTIALLY WORKING | 5 animations, colours, size, outline, shadow, position, SRT/VTT in and out, Cinematic Punch. Missing: font family choice, Cinematic Punch sliders (zoom, flash, vignette), saved custom presets, light leak, grain, PiP, split screen |
 | 7. Website and dashboard | PARTIALLY WORKING | Landing with a playing demo, dashboard, gallery, projects (rename, delete), export history, tokens. Missing: duplicate/archive projects, before/after showcase from a real render |
 | 8. Render and export | PARTIALLY WORKING | 9:16, 16:9, 1:1; 450p/720p/1080p; H.264 + AAC; queue states, cancel, ffprobe verification. Missing: 4:5, quality presets, GPU encode (NVENC not verified on the owner's laptop), concurrency setting in the UI |
 | 10. Tokens | VERIFIED WORKING | Backend ledger, idempotency, refunds, owner unlimited (Phase 0/1 evidence) |
 | 13. Demo project "CLIPKITA CINEMATIC PUNCH DEMO" | BLOCKED | Needs talking-head footage the owner has the rights to. The reference video may not be used. Place a file in `tests/fixtures/owner/` and it can be rendered through the pipeline |
+
+## Phase 4: editor core (2026-11-05)
+
+| Area | Status | Notes |
+|---|---|---|
+| Database | VERIFIED WORKING | Additive migration `2026110510_timeline_media` (5 tables, 2 enums). Backup verified, restore into a separate DB tested, old data hashes identical after the migration, rollback script tested |
+| Media library | VERIFIED WORKING | Upload (button and drag-drop) of video, audio, images; ffprobe check (fake files refused); thumbnails; search, filter, sort; preview; rename; delete refused while used (409 names the clips); owner-only |
+| Multi-track timeline | VERIFIED WORKING | 8 track types, add/remove tracks, add (buttons and drag from the library), move (also between tracks), trim, split, duplicate, delete, ripple delete, multi-select, lock, mute, hide, snapping (edges, playhead, markers), zoom, scroll, markers. Integer frames, non-destructive |
+| Undo/redo, autosave | VERIFIED WORKING | 50 snapshots; debounced server save, never two at once; version check with a conflict banner (keep mine / load saved); local draft recovery |
+| Inspector | VERIFIED WORKING | Per item: transform, crop, opacity, speed, volume, fades, text, effect, keyframes. Main-track position and scale come from framing |
+| Keyframes | VERIFIED WORKING | x, y, scale, opacity, volume; linear and ease; add/remove/move/edit; one formula for preview and FFmpeg (unit test evaluates the FFmpeg expression) |
+| Preview | PARTIALLY WORKING | One clock drives all media elements, same layout maths as the render. Grade and blur are CSS approximations; no proxy files yet |
+| Render | VERIFIED WORKING | One compositor for every clip; clips never opened in the new editor render exactly as before (regression tests) |
+| Word cards, Cinematic Punch, audit report | VERIFIED WORKING | Still pass their tests; cards and subtitles follow the speech through split and move |
+| Mobile | PARTIALLY WORKING | Phone: preview, clip list with split/duplicate/delete/cut silences, subtitles, cards. Drag timeline from 768 px |
+
+Tests never use the user's database. Integration and E2E runs use a separate database and storage folder:
+
+```
+createdb clipkita_e2e
+DATABASE_URL=postgresql://.../clipkita_e2e npx prisma migrate deploy
+DATABASE_URL=postgresql://.../clipkita_e2e npm run db:seed
+# web + worker with DATABASE_URL=.../clipkita_e2e STORAGE_DIR=<empty test folder> APP_URL=http://localhost:3100
+BASE=http://localhost:3100 TEST_VIDEO=<speech.mp4> node tests/e2e/api-e2e.mjs
+BASE=http://localhost:3100 TEST_VIDEO=<speech.mp4> MEDIA_DIR=<red.png, tone.wav, green.mp4, fake.mp4> OUT=<folder> node tests/e2e/studio-e2e.mjs
+```
 
 ## Owner decisions (2026-11-04)
 
@@ -119,3 +145,5 @@ Statuses use the prompt's terms. "Verified" means tested in this repo with the e
 - 2026-11-04 Phase 1: rebrand, CKP_ env names, owner name, feature flags. Evidence: rebrand grep empty, 100 unit/integration tests, 67 API E2E checks, build, CKP_-only env run, browser check of 11 pages (no banned labels, no console errors).
 - 2026-11-05 Phase 2: Cinematic Punch preset (punch captions with keyword pop-in, punch-in zoom on sentence starts, flash cuts, warm grade), Studio preview and options. Evidence: subtitle sync worst 30 ms, real sample render passed ffprobe and full decode, `tests/punch.test.ts`, full verify suite.
 - 2026-11-05 Phase 3: video audit report (page, API, JSON download) and word cards (render, preview, editor, timeline lane), bundled Instrument Serif (OFL). Evidence: `tests/cards.test.ts`, `tests/audit.test.ts`, worker render with a paper card measured in the output (luma 219.6 on the card vs 123.7 off), browser checks (15 passed: ownership 404/401, overflow at 1440 and 390, preview font, autosave, undo, no console errors), API E2E 67/67, subtitle sync still 30 ms, 113 unit tests, build.
+- 2026-11-05 Phase 4: media library, multi-track timeline, inspector, keyframes, timeline preview and compositor. Evidence (all on `clipkita_e2e` + separate storage): typecheck, lint, 130 unit tests, 6 integration tests with real Whisper + worker + FFmpeg (multi-track render measured in pixels and audio: keyframed overlay x 0.374/0.621 vs 0.375/0.625 expected, gap luma 16, B&W saturation 0.003, B-roll 100%/0% inside/outside its slot, tone −20.7 vs −94 dB; subtitle sync after split + move worst 50 ms over 7 events), API E2E 67/67, browser E2E 53/53 (`tests/e2e/studio-e2e.mjs`), build. Cinematic Punch sync still 30 ms over 16 events.
+- 2026-11-05 Incident, fixed: earlier integration runs with `KEEP_TEST_MEDIA=1` had left test users (`pipeline-*`, `reframe-*@test.local`) in the dev database. The cleanup also removed two such test users that existed before Phase 4; they were restored row by row (2 users, 2 projects, 2 sources, 2 transcripts, 2 clips, 10 subtitle lines, 4 jobs) and their 6 files from the pre-migration backup. Afterwards the dev DB matched the backup exactly (counts and content hashes of 7 tables). Owner account was not changed in the dev DB this phase; the E2E owner lives only in `clipkita_e2e`.

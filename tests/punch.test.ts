@@ -57,6 +57,6 @@ describe("cinematic_punch render args", () => {
     const args = buildRenderArgs({ input: "/in.mp4", clipStart: 0, clipEnd: 10, srcFps: 30, hasAudio: true, aspect: "9:16", resolution: "1080p", framing: "blur", cropX: 0.5, preset: PRESETS.cinematic_punch, keep: [{ start: 0, end: 10 }], output: "/out.mp4", punchIntervals: [{ start: 2, end: 4.5 }] });
     const fc = args[args.indexOf("-filter_complex") + 1];
     expect(fc).toContain("between(t,2,4.5)");
-    expect(fc).toMatch(/brightness='0\.22\*min/);
+    expect(fc).toContain("brightness='min(0.6,0.22*between(t,2,2.07)+0.22*between(t,4.5,4.57))'");
   });
 });

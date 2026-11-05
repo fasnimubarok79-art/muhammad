@@ -5,7 +5,7 @@ import { fmtTime } from "@/lib/client";
 import { CARD_LOOKS, newCard, type CardAnim, type CardStyle, type WordCard } from "@/lib/media/cards";
 import { keywordIndex } from "@/lib/media/subtitles";
 import { useToast } from "../ui/use-toast";
-import { activeSubtitle } from "./Player";
+import { activeSubtitle } from "@/lib/timeline/preview";
 import type { Doc } from "./useEditor";
 
 const STYLES: Array<{ v: CardStyle; l: string }> = [{ v: "grid", l: "Grid" }, { v: "paper", l: "Paper" }, { v: "black", l: "Black" }, { v: "accent", l: "Accent" }];
@@ -31,15 +31,17 @@ function Field({ label, id, children }: { label: string; id: string; children: R
 }
 
 /** Word cards: full-frame text inserts that are burned into the render exactly as previewed. */
-export function CardPanel({ doc, time, onCards, onSeek }: { doc: Doc; time: number; onCards: (c: WordCard[], group?: boolean) => void; onSeek: (t: number) => void }) {
+/** `time` is clip time (null when the playhead is not over the clip's own speech); `onSeek` takes clip time. */
+export function CardPanel({ doc, time, clipLen, onCards, onSeek }: { doc: Doc; time: number | null; clipLen: number; onCards: (c: WordCard[], group?: boolean) => void; onSeek: (t: number) => void }) {
   const toast = useToast();
   const cards = [...(doc.config.cards ?? [])].sort((a, b) => a.at - b.at);
   const [open, setOpen] = useState<string | null>(null);
-  const len = doc.config.trimEnd;
+  const len = clipLen;
   const update = (id: string, patch: Partial<WordCard>, group = true) => onCards(cards.map((c) => (c.id === id ? { ...c, ...patch } : c)), group);
 
   const add = () => {
-    const at = Math.max(doc.config.trimStart, time);
+    if (time === null) return toast({ tone: "error", title: "Put the playhead over the clip's own video", body: "Cards follow the speech, so they need a moment of this clip under the playhead." });
+    const at = Math.max(0, time);
     if (cards.some((c) => at >= c.at - 0.05 && at < c.at + c.dur)) return toast({ tone: "error", title: "A card is already showing here. Move the playhead first." });
     if (at > len - 0.4) return toast({ tone: "error", title: "Too close to the end of the clip" });
     // suggest the word being spoken, or the line's keyword
@@ -65,7 +67,7 @@ export function CardPanel({ doc, time, onCards, onSeek }: { doc: Doc; time: numb
           </li>
         )}
         {cards.map((c, i) => {
-          const live = time >= c.at && time < c.at + c.dur;
+          const live = time !== null && time >= c.at && time < c.at + c.dur;
           const expanded = open === c.id;
           const id = (k: string) => `card-${c.id}-${k}`;
           return (

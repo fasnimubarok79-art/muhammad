@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ClientApiError, fmtTime } from "@/lib/client";
-import { activeSubtitle } from "../studio/Player";
+import { activeSubtitle } from "@/lib/timeline/preview";
 import type { Seg } from "../studio/useEditor";
 import { Empty, ErrorNote, Spinner, StatusPill } from "../ui/bits";
 import { useToast } from "../ui/use-toast";

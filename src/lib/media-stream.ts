@@ -36,5 +36,9 @@ export async function streamFile(req: NextRequest, file: string, contentType: st
   return new Response(body, { status: 200, headers: { ...headers, "Content-Length": String(size) } });
 }
 
-export const mimeFor = (key: string) =>
-  key.endsWith(".jpg") ? "image/jpeg" : key.endsWith(".webm") ? "video/webm" : key.endsWith(".mov") ? "video/quicktime" : key.endsWith(".mkv") ? "video/x-matroska" : "video/mp4";
+const MIME: Record<string, string> = {
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp",
+  webm: "video/webm", mov: "video/quicktime", mkv: "video/x-matroska", mp4: "video/mp4",
+  mp3: "audio/mpeg", wav: "audio/wav", m4a: "audio/mp4", aac: "audio/aac", ogg: "audio/ogg",
+};
+export const mimeFor = (key: string) => MIME[key.split(".").pop()?.toLowerCase() ?? ""] ?? "video/mp4";

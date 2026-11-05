@@ -16,6 +16,17 @@ if (-not (Get-NetTCPConnection -LocalPort 5432 -State Listen -ErrorAction Silent
   Write-Host "WARNING: PostgreSQL is not running on port 5432. ClipKita-Pro will not work until it is started." -ForegroundColor Yellow
 }
 
+# Apply new database migrations (additive only, see docs/migrations), always after a backup.
+Set-Location $Root
+& npx prisma migrate status *> $null
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "New database migrations found. Making a backup first..."
+  npm run backup
+  if ($LASTEXITCODE -ne 0) { Write-Host "Backup failed, so the migrations were NOT applied. Check that PostgreSQL runs, then start again." -ForegroundColor Red; exit 1 }
+  npx prisma migrate deploy
+  if ($LASTEXITCODE -ne 0) { Write-Host "Migration failed. Your data is in the backup above; see scripts\backup\RECOVERY.md." -ForegroundColor Red; exit 1 }
+}
+
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$Root'; `$host.UI.RawUI.WindowTitle = 'ClipKita-Pro web'; npm start"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$Root'; `$host.UI.RawUI.WindowTitle = 'ClipKita-Pro worker'; npm run worker"
 Start-Sleep -Seconds 8

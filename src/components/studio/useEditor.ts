@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "@/lib/client";
+import { api, ClientApiError } from "@/lib/client";
 import type { WordCard } from "@/lib/media/cards";
+import type { TimelineDoc } from "@/lib/timeline/schema";
 
 export type Word = { w: string; s: number; e: number; p?: number };
 export type Seg = { start: number; end: number; text: string; words: Word[] };
@@ -13,14 +14,15 @@ export type Config = {
   resolution: "450p" | "720p" | "1080p";
   framing: "blur" | "crop" | "pad" | "follow";
   cropX: number;
-  removeSilence: boolean;
+  removeSilence: boolean; // legacy: only used to build the first timeline of an old clip
   burnSubtitles: boolean;
-  trimStart: number;
+  trimStart: number; // legacy, as above
   trimEnd: number;
   style: Style;
   cards: WordCard[];
 };
-export type Doc = { title: string; description: string; segments: Seg[]; config: Config };
+export type Doc = { title: string; description: string; segments: Seg[]; config: Config; timeline: TimelineDoc };
+export type SaveState = "saved" | "dirty" | "saving" | "error" | "conflict";
 
 export const DEFAULT_STYLE: Style = { preset: "karaoke", fontSize: 84, primary: "#FFFFFF", highlight: "#FF7A1A", outline: 7, shadow: 3, marginV: 540 };
 export const defaultConfig = (len: number): Config => ({
@@ -29,43 +31,52 @@ export const defaultConfig = (len: number): Config => ({
 
 const LIMIT = 50;
 
-/** Editor document with 50-step undo/redo, localStorage autosave (400ms) and debounced server save. */
-export function useEditor(clipId: string, initial: Doc | null, serverUpdatedAt: string | null) {
+/**
+ * Editor document with 50-step undo/redo (snapshots of the whole document, timeline included),
+ * a localStorage draft every 400 ms for crash recovery, and a debounced server save.
+ * Saves never overlap: a change made while a save is running is sent right after it. A save only
+ * counts as saved when the server confirmed it; a stale timeline version shows a conflict.
+ */
+export function useEditor(clipId: string, initial: Doc | null, serverUpdatedAt: string | null, initialVersion: number) {
   const [doc, setDoc] = useState<Doc | null>(initial);
   const past = useRef<Doc[]>([]);
   const future = useRef<Doc[]>([]);
   const [, force] = useState(0);
-  const [saveState, setSaveState] = useState<"saved" | "dirty" | "saving" | "error">("saved");
+  const [saveState, setSaveState] = useState<SaveState>("saved");
   const [recovery, setRecovery] = useState<Doc | null>(null);
   const lastSaved = useRef<string>("");
+  const version = useRef(initialVersion);
+  const inflight = useRef(false);
+  const queued = useRef<Doc | null>(null);
+  const conflict = useRef<number | null>(null);
   const draftKey = `clipkita:draft:${clipId}`;
 
   useEffect(() => {
     if (!initial) return;
     setDoc(initial);
     lastSaved.current = JSON.stringify(initial);
+    version.current = initialVersion;
     past.current = [];
     future.current = [];
     try {
       const raw = localStorage.getItem(draftKey);
       if (raw) {
         const d = JSON.parse(raw) as { savedAt: string; doc: Doc };
-        if (serverUpdatedAt && d.savedAt > serverUpdatedAt && JSON.stringify(d.doc) !== lastSaved.current) setRecovery(d.doc);
+        if (serverUpdatedAt && d.savedAt > serverUpdatedAt && d.doc?.timeline && JSON.stringify(d.doc) !== lastSaved.current) setRecovery(d.doc);
       }
     } catch {}
-  }, [initial, draftKey, serverUpdatedAt]);
+  }, [initial, draftKey, serverUpdatedAt, initialVersion]);
 
   const commit = useCallback((next: Doc | ((d: Doc) => Doc), group = false) => {
     setDoc((cur) => {
       if (!cur) return cur;
       const n = typeof next === "function" ? next(cur) : next;
-      if (!group || past.current.length === 0) {
-        past.current = [...past.current.slice(-(LIMIT - 1)), cur];
-      }
+      if (n === cur) return cur;
+      if (!group || past.current.length === 0) past.current = [...past.current.slice(-(LIMIT - 1)), cur];
       future.current = [];
       return n;
     });
-    setSaveState("dirty");
+    setSaveState((s) => (s === "conflict" ? s : "dirty"));
   }, []);
 
   const undo = useCallback(() => {
@@ -75,7 +86,7 @@ export function useEditor(clipId: string, initial: Doc | null, serverUpdatedAt: 
       future.current = [...future.current, cur].slice(-LIMIT);
       return prev;
     });
-    setSaveState("dirty");
+    setSaveState((s) => (s === "conflict" ? s : "dirty"));
     force((x) => x + 1);
   }, []);
   const redo = useCallback(() => {
@@ -85,11 +96,11 @@ export function useEditor(clipId: string, initial: Doc | null, serverUpdatedAt: 
       past.current = [...past.current, cur].slice(-LIMIT);
       return nxt;
     });
-    setSaveState("dirty");
+    setSaveState((s) => (s === "conflict" ? s : "dirty"));
     force((x) => x + 1);
   }, []);
 
-  // local autosave (400ms) for crash recovery
+  // local draft (400 ms) for crash recovery
   useEffect(() => {
     if (!doc) return;
     const t = setTimeout(() => {
@@ -100,27 +111,49 @@ export function useEditor(clipId: string, initial: Doc | null, serverUpdatedAt: 
     return () => clearTimeout(t);
   }, [doc, draftKey]);
 
-  const saveNow = useCallback(async (d: Doc) => {
+  const saveNow = useCallback(async (d: Doc): Promise<void> => {
+    if (inflight.current) {
+      queued.current = d;
+      return;
+    }
     const snapshot = JSON.stringify(d);
-    if (snapshot === lastSaved.current) return setSaveState("saved");
+    if (snapshot === lastSaved.current) {
+      setSaveState((s) => (s === "conflict" ? s : "saved"));
+      return;
+    }
+    inflight.current = true;
     setSaveState("saving");
     try {
       const prev = lastSaved.current ? (JSON.parse(lastSaved.current) as Doc) : null;
       if (!prev || JSON.stringify(prev.segments) !== JSON.stringify(d.segments)) {
         await api(`/api/clips/${clipId}/subtitles`, { method: "PUT", body: { segments: d.segments } });
       }
+      if (!prev || JSON.stringify(prev.timeline) !== JSON.stringify(d.timeline)) {
+        const r = await api<{ version: number }>(`/api/clips/${clipId}/timeline`, { method: "PUT", body: { version: version.current, timeline: d.timeline } });
+        version.current = r.version;
+      }
       await api(`/api/clips/${clipId}`, { method: "PATCH", body: { title: d.title, description: d.description, editConfig: d.config } });
       lastSaved.current = snapshot;
+      conflict.current = null;
       setSaveState("saved");
-    } catch {
-      setSaveState("error");
+    } catch (e) {
+      if (e instanceof ClientApiError && e.body.code === "VERSION_CONFLICT") {
+        conflict.current = typeof e.body.version === "number" ? e.body.version : null;
+        queued.current = null;
+        setSaveState("conflict");
+      } else setSaveState("error");
+    } finally {
+      inflight.current = false;
     }
+    const next = queued.current;
+    queued.current = null;
+    if (next && conflict.current === null) await saveNow(next);
   }, [clipId]);
 
-  // server autosave, debounced
+  // server autosave, debounced; failed saves retry on the next change or after 10 s
   useEffect(() => {
-    if (!doc || saveState !== "dirty") return;
-    const t = setTimeout(() => void saveNow(doc), 1500);
+    if (!doc || (saveState !== "dirty" && saveState !== "error")) return;
+    const t = setTimeout(() => void saveNow(doc), saveState === "error" ? 10_000 : 1500);
     return () => clearTimeout(t);
   }, [doc, saveState, saveNow]);
 
@@ -132,13 +165,35 @@ export function useEditor(clipId: string, initial: Doc | null, serverUpdatedAt: 
     canUndo: past.current.length > 0,
     canRedo: future.current.length > 0,
     saveState,
-    saveNow: () => doc && saveNow(doc),
+    saveNow: () => (doc ? saveNow(doc) : Promise.resolve()),
     recovery,
     acceptRecovery: () => {
       if (recovery) commit(recovery);
       setRecovery(null);
     },
     dismissRecovery: () => setRecovery(null),
+    /** Conflict: keep this tab's version and overwrite the newer saved one. */
+    keepMine: async () => {
+      const r = await api<{ version: number }>(`/api/clips/${clipId}/timeline`);
+      version.current = r.version;
+      conflict.current = null;
+      setSaveState("dirty");
+    },
+    /** Conflict: load the saved timeline (this replaces the local timeline, it is not undoable). */
+    loadTheirs: async () => {
+      const r = await api<{ version: number; timeline: TimelineDoc }>(`/api/clips/${clipId}/timeline`);
+      version.current = r.version;
+      conflict.current = null;
+      setDoc((cur) => {
+        if (!cur) return cur;
+        const n = { ...cur, timeline: r.timeline };
+        lastSaved.current = JSON.stringify({ ...JSON.parse(lastSaved.current || "{}"), timeline: r.timeline });
+        return n;
+      });
+      past.current = [];
+      future.current = [];
+      setSaveState("dirty");
+    },
     replaceSegmentsFromServer: (segs: Seg[]) => {
       setDoc((cur) => {
         if (!cur) return cur;
@@ -151,7 +206,7 @@ export function useEditor(clipId: string, initial: Doc | null, serverUpdatedAt: 
   };
 }
 
-/** Split a segment at time t (clip-relative) on the nearest word boundary. */
+/** Split a subtitle line at clip time t on the nearest word boundary. */
 export function splitAt(segs: Seg[], t: number): Seg[] | null {
   const i = segs.findIndex((s) => t > s.start && t < s.end);
   if (i < 0) return null;

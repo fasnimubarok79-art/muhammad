@@ -16,8 +16,14 @@ import { run, ProcessError } from "../src/lib/media/exec";
 import { displaySize, probe } from "../src/lib/media/probe";
 import { parseScenes, parseSilences, proposeClips, type Interval } from "../src/lib/media/clipping";
 import { buildSegments, DEFAULT_STYLE, IMPACT_STYLE, PUNCH_STYLE, sliceWords, toAss, type Segment, type SubtitleStyle, type Word } from "../src/lib/media/subtitles";
-import { cardEvents, CARD_STYLE_LINE, placeCards, type WordCard } from "../src/lib/media/cards";
-import { buildRenderArgs, keepIntervals, mapTime, outputSize, PRESETS, punchPlan, remapWords, verifyOutput, type Aspect, type Framing, type PresetId, type Resolution } from "../src/lib/media/render";
+import { cardEvents, CARD_STYLE_LINE, type WordCard } from "../src/lib/media/cards";
+import { buildRenderArgs, outputSize, PRESETS, punchPlan, verifyOutput, type Aspect, type Framing, type PresetId, type Resolution } from "../src/lib/media/render";
+import { defaultTimeline, pickFps } from "../src/lib/timeline/defaults";
+import { mapCards, mapSegments } from "../src/lib/timeline/mapping";
+import { planTimeline, type PlanMedia } from "../src/lib/timeline/render-plan";
+import { timelineSchema, type TimelineDoc } from "../src/lib/timeline/schema";
+import { checkRefs, rowsToDoc } from "../src/lib/timeline/store";
+import { textEvents, TITLE_STYLE_LINE } from "../src/lib/timeline/text";
 import { detectFaceTrack, shiftTrack, trackCovers, type CachedTrack } from "../src/lib/media/faces";
 import { focusExpr as faceFocusExpr, type Keyframe } from "../src/lib/media/reframe";
 
@@ -316,23 +322,39 @@ export async function render(ctx: Ctx) {
   const preset = PRESETS[params.preset];
   if (!preset) throw new JobFailure("Unknown preset");
 
-  // effective window, clamped to the real source duration
-  const clipLen = clip.endSec - clip.startSec;
-  const tStart = Math.max(0, Math.min(params.trimStart ?? 0, clipLen - 0.5));
-  const tEnd = Math.max(tStart + 0.5, Math.min(params.trimEnd ?? clipLen, clipLen));
-  const absStart = clip.startSec + tStart;
-  const absEnd = Math.min(src.durationSec, clip.startSec + tEnd);
-  const winLen = absEnd - absStart;
-
   await setStatus(ctx, "editing", 5);
+  // The clip's saved timeline. Clips never opened in the new editor (and jobs queued before it existed)
+  // get the timeline the editor would create from these render settings, so they render as before.
+  const stored = await db.timeline.findUnique({ where: { clipId: clip.id }, include: { tracks: { include: { items: true } }, markers: true } });
   const analysis = (src.analysis ?? { silences: [] }) as { silences: Interval[] };
-  const localSilences = analysis.silences
-    .map((s) => ({ start: s.start - absStart, end: s.end - absStart }))
-    .filter((s) => s.end > 0 && s.start < winLen)
-    .map((s) => ({ start: Math.max(0, s.start), end: Math.min(winLen, s.end) }));
-  const keep = params.removeSilence ? keepIntervals(winLen, localSilences) : [{ start: 0, end: winLen }];
-  if (!keep.length) throw new JobFailure("Nothing left after removing silence");
-  const outDur = keep.reduce((a, k) => a + (k.end - k.start), 0);
+  const doc: TimelineDoc = stored
+    ? rowsToDoc(stored)
+    : defaultTimeline({
+        clip: { startSec: clip.startSec, endSec: clip.endSec, sourceVideoId: src.id },
+        sourceDurationSec: src.durationSec, aspect: params.aspect, trimStart: params.trimStart, trimEnd: params.trimEnd,
+        removeSilence: params.removeSilence, silences: analysis.silences, fps: pickFps(src.fps),
+      });
+  const valid = timelineSchema.safeParse(doc);
+  if (!valid.success) throw new JobFailure(`The timeline is not valid: ${valid.error.issues[0]?.message ?? "unknown problem"}`);
+  let media: Map<string, PlanMedia>;
+  try {
+    const { assets, sources } = await checkRefs(job.userId, doc);
+    media = new Map<string, PlanMedia>([
+      ...assets.map((m) => [`asset:${m.id}`, { path: keyPath(m.storageKey), kind: m.kind, durationSec: m.durationSec, width: m.width ?? 0, height: m.height ?? 0, hasAudio: m.hasAudio }] as const),
+      ...sources.map((m) => [`source:${m.id}`, { path: keyPath(m.storageKey!), kind: "VIDEO" as const, durationSec: m.durationSec, width: m.width ?? 0, height: m.height ?? 0, hasAudio: Boolean(m.hasAudio) }] as const),
+    ]);
+  } catch {
+    throw new JobFailure("A file used on the timeline is missing");
+  }
+  const plan = (() => {
+    try {
+      return planTimeline(doc, media);
+    } catch (e) {
+      throw new JobFailure(e instanceof Error ? e.message : "The timeline cannot be rendered");
+    }
+  })();
+  const outDur = plan.durationSec;
+  const track = (type: string) => doc.tracks.find((t) => t.type === type);
 
   const work = path.join(os.tmpdir(), `ck-render-${job.id}`);
   await mkdir(work, { recursive: true });
@@ -341,51 +363,44 @@ export async function render(ctx: Ctx) {
     // ASS coordinates use a fixed 1920px height; libass scales them to the real output size.
     const size = outputSize(params.aspect, params.resolution);
     const play = { w: Math.round((size.w / size.h) * 1920), h: 1920 };
-    const cards = placeCards(params.cards ?? [], tStart, winLen, outDur, (t) => mapTime(t, keep));
-    const cardLayer = cards.length ? { styles: [CARD_STYLE_LINE], events: cardEvents(cards, play) } : undefined;
-    const burnSubs = params.burnSubtitles && clip.segments.length > 0;
-    if (burnSubs || cardLayer) {
-      const segs: Segment[] = clip.segments.map((s) => ({
-        start: s.startSec - tStart,
-        end: s.endSec - tStart,
-        text: s.text,
-        words: ((s.wordsJson as unknown as Word[]) ?? []).map((w) => ({ ...w, s: w.s - tStart, e: w.e - tStart })),
-      }));
-      const remapped = segs
-        .map((s) => {
-          const words = remapWords(s.words.filter((w) => w.e > 0 && w.s < winLen), keep);
-          if (!words.length) return null;
-          return { start: words[0].s, end: words[words.length - 1].e, text: words.map((w) => w.w).join(" "), words };
-        })
-        .filter((s): s is Segment => s !== null);
+    // subtitles and cards follow the speech through the main-track items (see timeline/mapping.ts)
+    const clipSegs: Segment[] = clip.segments.map((s) => ({ start: s.startSec, end: s.endSec, text: s.text, words: (s.wordsJson as unknown as Word[]) ?? [] }));
+    const mapped = mapSegments(doc, src.id, clip.startSec, clipSegs);
+    const burnSubs = params.burnSubtitles && !track("SUBTITLE")?.hidden && mapped.length > 0;
+    const cards = track("CARDS")?.hidden ? [] : mapCards(doc, src.id, clip.startSec, params.cards ?? []);
+    const texts = textEvents(plan.texts, play);
+    if (burnSubs || cards.length || texts.length) {
       const vertical = params.aspect === "9:16";
       const base: SubtitleStyle = { ...DEFAULT_STYLE, ...(preset.subtitle === "impact" ? IMPACT_STYLE : preset.subtitle === "punch" ? PUNCH_STYLE : {}), preset: preset.subtitle, ...params.style };
       const style = vertical ? base : { ...base, fontSize: Math.round(base.fontSize * 0.8), marginV: 230, maxCharsPerLine: 32 };
       assPath = path.join(work, "subs.ass");
-      await writeFile(assPath, toAss(burnSubs ? remapped : [], style, play, cardLayer), "utf8");
+      const extra = { styles: [CARD_STYLE_LINE, TITLE_STYLE_LINE], events: [...texts, ...cardEvents(cards, play)] };
+      await writeFile(assPath, toAss(burnSubs ? mapped : [], style, play, extra), "utf8");
     }
 
-    // follow-face reframing: reuse the cached track for this exact window or detect now
-    let followExpr: string | undefined;
+    // follow-face reframing: one camera path per main-track piece cut from the clip's source
     let reframe: Record<string, unknown> | undefined;
     if (params.framing === "follow") {
       try {
-        let track: CachedTrack;
-        if (trackCovers(clip.faceTrack, absStart, absEnd)) track = shiftTrack(clip.faceTrack as unknown as CachedTrack, absStart, absEnd);
+        let full: CachedTrack;
+        if (trackCovers(clip.faceTrack, clip.startSec, clip.endSec)) full = clip.faceTrack as unknown as CachedTrack;
         else {
           // detect over the whole clip so the editor preview and later trims can reuse it
-          const full = await detectFaceTrack(keyPath(src.storageKey), clip.startSec, clip.endSec, { signal: ctx.signal, onProgress: (p) => void setProgress(job.id, 5 + p * 0.04) });
+          full = await detectFaceTrack(keyPath(src.storageKey), clip.startSec, clip.endSec, { signal: ctx.signal, onProgress: (p) => void setProgress(job.id, 5 + p * 0.04) });
           await db.clip.update({ where: { id: clip.id }, data: { faceTrack: full as unknown as Prisma.InputJsonValue } });
-          track = shiftTrack(full, absStart, absEnd);
         }
-        // move keyframes onto the edited timeline (after silence removal)
-        const mapped: Keyframe[] = [];
-        for (const k of track.keyframes) {
-          const t = mapTime(k.t, keep) ?? 0;
-          if (!mapped.length || t > mapped[mapped.length - 1].t + 0.01) mapped.push({ t, x: k.x });
-        }
-        followExpr = faceFocusExpr(mapped);
-        reframe = { mode: "follow", detector: track.detector, sampled: track.sampled, withFace: track.withFace, keyframes: mapped.length, ...(track.withFace ? {} : { note: "No face found; the crop stays centred." }) };
+        let keyframes = 0;
+        plan.segMeta.forEach((m, k) => {
+          const it = m.item;
+          if (!it || it.sourceVideoId !== src.id) return;
+          const a = it.sourceInFrame / doc.fps;
+          const b = a + (it.durationFrames / doc.fps) * it.speed;
+          const local = shiftTrack(full, Math.max(full.start, a), Math.min(full.end, b));
+          const kf: Keyframe[] = local.keyframes.map((x) => ({ t: x.t / it.speed, x: x.x }));
+          keyframes += kf.length;
+          plan.segments[k].focusExpr = faceFocusExpr(kf);
+        });
+        reframe = { mode: "follow", detector: full.detector, sampled: full.sampled, withFace: full.withFace, keyframes, ...(full.withFace ? {} : { note: "No face found; the crop stays centred." }) };
       } catch (e) {
         if (e instanceof JobCancelled || ctx.signal.aborted) throw e;
         console.error("[worker] face detection failed", e instanceof ProcessError ? e.stderrTail.slice(-400) : e);
@@ -393,13 +408,10 @@ export async function render(ctx: Ctx) {
       }
     }
 
-    // punch-in shots switch on sentence starts (on the edited timeline); fixed rhythm without subtitles
+    // punch-in shots switch on sentence starts (on the timeline); fixed rhythm without subtitles
     let punchIntervals: Interval[] | undefined;
     if (preset.punchScale) {
-      const starts = clip.segments
-        .map((s) => s.startSec - tStart)
-        .filter((t) => t >= 0 && t < winLen)
-        .map((t) => mapTime(t, keep) ?? 0);
+      const starts = mapped.map((s) => s.start).filter((t) => t >= 0 && t < outDur);
       const rhythm = starts.length >= 2 ? starts : Array.from({ length: Math.floor(outDur / 2.4) }, (_, i) => (i + 1) * 2.4);
       punchIntervals = punchPlan(rhythm, outDur);
     }
@@ -408,24 +420,24 @@ export async function render(ctx: Ctx) {
     await ensureDirFor(outKey);
     const outFile = keyPath(outKey);
     const args = buildRenderArgs({
-      input: keyPath(src.storageKey),
-      clipStart: absStart,
-      clipEnd: absEnd,
-      srcFps: src.fps ?? 30,
-      hasAudio: Boolean(src.hasAudio),
+      inputs: plan.inputs,
+      segments: plan.segments,
+      overlays: plan.overlays,
+      audios: plan.audios,
+      effects: plan.effects,
+      fps: doc.fps,
       aspect: params.aspect,
       resolution: params.resolution,
       framing: params.framing,
       cropX: params.cropX,
-      focusExpr: followExpr,
       punchIntervals,
       preset,
-      keep,
       assPath,
-      // bundled Inter Black (SIL OFL), so subtitles look the same on every OS without installing fonts
+      // bundled Inter Black and Instrument Serif (SIL OFL), so text looks the same on every OS
       fontsDir: path.resolve(__dirname, "fonts"),
       output: outFile,
     });
+    const winLen = (clip.endSec - clip.startSec);
 
     await setStatus(ctx, "rendering", 10);
     try {
@@ -454,7 +466,8 @@ export async function render(ctx: Ctx) {
       throw new JobFailure(`Output failed verification: ${check.problems.join("; ")}`);
     }
     const st = await stat(outFile);
-    return { outputKey: outKey, meta: { ...out, sizeBytes: st.size, removedSec: Number((winLen - outDur).toFixed(2)), verified: true, ...(reframe ? { reframe } : {}) } };
+    const removedSec = !stored && params.removeSilence ? Number((Math.min(winLen, (params.trimEnd ?? winLen) - (params.trimStart ?? 0)) - outDur).toFixed(2)) : undefined;
+    return { outputKey: outKey, meta: { ...out, sizeBytes: st.size, ...(removedSec ? { removedSec } : {}), timeline: { stored: Boolean(stored), tracks: doc.tracks.length, items: doc.items.length }, verified: true, ...(reframe ? { reframe } : {}) } };
   } finally {
     await rm(work, { recursive: true, force: true });
   }

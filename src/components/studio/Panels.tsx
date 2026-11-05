@@ -3,7 +3,7 @@
 import { useRef, type ReactNode } from "react";
 import { api, ClientApiError, fmtTime } from "@/lib/client";
 import { useToast } from "../ui/use-toast";
-import { retext, retime, DEFAULT_STYLE, type Config, type Doc, type Seg, type Style } from "./useEditor";
+import { retext, retime, splitAt, DEFAULT_STYLE, type Config, type Doc, type Seg, type Style } from "./useEditor";
 
 /** Style values a subtitle animation brings with it (Impact is big, centred and yellow). */
 export function styleFor(preset: Style["preset"], current: Style): Style {
@@ -43,9 +43,9 @@ function Row({ label, htmlFor, children }: { label: string; htmlFor?: string; ch
 
 function Seg3<T extends string>({ value, options, onChange, label }: { value: T; options: Array<{ v: T; l: string }>; onChange: (v: T) => void; label: string }) {
   return (
-    <div role="radiogroup" aria-label={label} className="grid auto-cols-fr grid-flow-col gap-1 rounded-ctl bg-surface2 p-0.5">
+    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1 rounded-ctl bg-surface2 p-0.5">
       {options.map((o) => (
-        <button key={o.v} role="radio" aria-checked={value === o.v} onClick={() => onChange(o.v)} className={`h-7 rounded-[5px] text-[12px] font-medium ${value === o.v ? "bg-bg text-ink" : "text-muted hover:text-ink"}`}>{o.l}</button>
+        <button key={o.v} role="radio" aria-checked={value === o.v} onClick={() => onChange(o.v)} className={`h-7 min-w-fit flex-1 whitespace-nowrap rounded-[5px] px-1.5 text-[12px] font-medium ${value === o.v ? "bg-bg text-ink" : "text-muted hover:text-ink"}`}>{o.l}</button>
       ))}
     </div>
   );
@@ -53,7 +53,7 @@ function Seg3<T extends string>({ value, options, onChange, label }: { value: T;
 
 export type FaceStatus = { state: "none" | "detecting" | "ready" | "error"; sampled?: number; withFace?: number; message?: string };
 
-export function Inspector({ doc, clipLen, onConfig, onDoc, face, onDetectFaces }: { doc: Doc; clipLen: number; onConfig: (c: Partial<Config>, group?: boolean) => void; onDoc: (d: Partial<Doc>, group?: boolean) => void; face: FaceStatus; onDetectFaces: () => void }) {
+export function Inspector({ doc, length, silenceSec, onConfig, onDoc, onCutSilences, face, onDetectFaces }: { doc: Doc; length: number; silenceSec: number; onConfig: (c: Partial<Config>, group?: boolean) => void; onDoc: (d: Partial<Doc>, group?: boolean) => void; onCutSilences: () => void; face: FaceStatus; onDetectFaces: () => void }) {
   const c = doc.config;
   const st = (s: Partial<Style>, group = true) => onConfig({ style: { ...c.style, ...s } }, group);
   return (
@@ -67,13 +67,7 @@ export function Inspector({ doc, clipLen, onConfig, onDoc, face, onDetectFaces }
           <label htmlFor="i-desc" className="label">Description</label>
           <textarea id="i-desc" className="field h-20 py-2" value={doc.description} maxLength={2000} onChange={(e) => onDoc({ description: e.target.value }, true)} />
         </div>
-        <Row label="Trim in" htmlFor="i-tin">
-          <input id="i-tin" type="number" step={0.1} min={0} max={c.trimEnd - 0.5} className="field h-8 tc" value={c.trimStart.toFixed(2)} onChange={(e) => onConfig({ trimStart: Math.max(0, Math.min(Number(e.target.value), c.trimEnd - 0.5)) })} />
-        </Row>
-        <Row label="Trim out" htmlFor="i-tout">
-          <input id="i-tout" type="number" step={0.1} min={c.trimStart + 0.5} max={clipLen} className="field h-8 tc" value={c.trimEnd.toFixed(2)} onChange={(e) => onConfig({ trimEnd: Math.min(clipLen, Math.max(Number(e.target.value), c.trimStart + 0.5)) })} />
-        </Row>
-        <p className="text-[12px] text-faint tc">Length {fmtTime(c.trimEnd - c.trimStart)}</p>
+        <p className="text-[12px] text-faint tc">Timeline length {fmtTime(length)}. Trim, split and arrange on the timeline.</p>
       </Group>
 
       <Group title="Format and framing">
@@ -115,25 +109,28 @@ export function Inspector({ doc, clipLen, onConfig, onDoc, face, onDetectFaces }
       </Group>
 
       <Group title="Audio">
-        <label className="flex items-center gap-2"><input type="checkbox" className="accent-[#3DDC97]" checked={c.removeSilence} onChange={(e) => onConfig({ removeSilence: e.target.checked })} /> Remove silences longer than 0.6s</label>
+        <button className="btn-secondary h-8 text-[12px]" onClick={onCutSilences} disabled={silenceSec < 0.3}>Cut silences on the main track</button>
+        <p className="text-[12px] text-muted">{silenceSec >= 0.3 ? `About ${silenceSec.toFixed(1)}s of pauses longer than 0.6s. The cut splits the clip and closes the gaps; undo brings it back.` : "No pauses longer than 0.6s left in the clip."}</p>
         <p className="text-[12px] text-faint">Every render cleans low rumble and normalises loudness to −14 LUFS for phones.</p>
       </Group>
     </div>
   );
 }
 
-export function SubtitleList({ doc, clipId, time, selected, onSelect, onSegments, onSeek, onReplaced }: { doc: Doc; clipId: string; time: number; selected: number | null; onSelect: (i: number) => void; onSegments: (s: Seg[], group?: boolean) => void; onSeek: (t: number) => void; onReplaced: () => void }) {
+/** `time` is clip time (null when the playhead is not over the clip's own speech); `onSeek` takes clip time. */
+export function SubtitleList({ doc, clipId, time, clipLen, selected, onSelect, onSegments, onSeek, onReplaced }: { doc: Doc; clipId: string; time: number | null; clipLen: number; selected: number | null; onSelect: (i: number) => void; onSegments: (s: Seg[], group?: boolean) => void; onSeek: (t: number) => void; onReplaced: () => void }) {
   const toast = useToast();
   const file = useRef<HTMLInputElement>(null);
   const segs = doc.segments;
   const update = (i: number, s: Seg, group = true) => onSegments(segs.map((x, k) => (k === i ? s : x)), group);
-  const len = doc.config.trimEnd;
+  const len = clipLen;
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-wrap gap-1.5 border-b border-line p-2">
         <button
           className="btn-secondary h-8 px-2.5 text-[12px]"
           onClick={() => {
+            if (time === null) return toast({ tone: "error", title: "Put the playhead over the clip's own video" });
             const start = Math.max(0, time);
             const after = segs.find((s) => s.start > start);
             const end = Math.min(start + 1.5, after ? after.start : len, len);
@@ -143,6 +140,16 @@ export function SubtitleList({ doc, clipId, time, selected, onSelect, onSegments
           }}
         >
           Add at playhead
+        </button>
+        <button
+          className="btn-secondary h-8 px-2.5 text-[12px]"
+          onClick={() => {
+            const n = time === null ? null : splitAt(segs, time);
+            if (n) onSegments(n);
+            else toast({ tone: "info", title: "Put the playhead inside a line with at least two words" });
+          }}
+        >
+          Split line
         </button>
         <button className="btn-secondary h-8 px-2.5 text-[12px]" onClick={() => file.current?.click()}>Import SRT/VTT</button>
         <a className="btn-secondary h-8 px-2.5 text-[12px]" href={`/api/clips/${clipId}/captions?format=srt`}>SRT</a>
@@ -170,7 +177,7 @@ export function SubtitleList({ doc, clipId, time, selected, onSelect, onSegments
       <ol className="min-h-0 flex-1 overflow-y-auto">
         {segs.length === 0 && <li className="p-3 text-[13px] text-muted">No subtitles. Use Auto Caption in AI tools, import a file, or add a line.</li>}
         {segs.map((s, i) => {
-          const active = time >= s.start && time < s.end;
+          const active = time !== null && time >= s.start && time < s.end;
           return (
             <li key={i} className={`border-b border-line px-2 py-2 ${selected === i ? "bg-surface2" : ""}`} onFocus={() => onSelect(i)}>
               <div className="flex items-center gap-1 text-[11px] tc">

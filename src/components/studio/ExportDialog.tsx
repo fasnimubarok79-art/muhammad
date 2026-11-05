@@ -11,7 +11,7 @@ type Quote = { lines: Array<{ label: string; amount: number }>; total: number; c
 type Job = { id: string; status: string; progress: number; error: string | null; hasOutput: boolean; outputMeta: { durationSec?: number; sizeBytes?: number; video?: { width: number; height: number; fps: number; codec: string }; audio?: { codec: string }; removedSec?: number } | null };
 
 /** Shows the exact token cost first, then renders, polls the backend job, previews and downloads. */
-export function ExportDialog({ clipId, config, onClose, beforeRender }: { clipId: string; config: Config; onClose: () => void; beforeRender: () => Promise<unknown> }) {
+export function ExportDialog({ clipId, config, summary, onClose, beforeRender }: { clipId: string; config: Config; summary: string; onClose: () => void; beforeRender: () => Promise<unknown> }) {
   const toast = useToast();
   const { user, refresh } = useSession();
   const [res, setRes] = useState<Config["resolution"]>(config.resolution);
@@ -96,7 +96,7 @@ export function ExportDialog({ clipId, config, onClose, beforeRender }: { clipId
                 </button>
               ))}
             </div>
-            <p className="mt-3 text-[12px] text-muted">{config.aspect} · {config.framing === "blur" ? "fit+blur" : config.framing} · H.264 + AAC MP4 · {config.burnSubtitles ? "subtitles burned in" : "no subtitles"}{config.removeSilence ? " · silences cut" : ""}</p>
+            <p className="mt-3 text-[12px] text-muted">{config.aspect} · {config.framing === "blur" ? "fit+blur" : config.framing} · H.264 + AAC MP4 · {config.burnSubtitles ? "subtitles burned in" : "no subtitles"} · {summary}</p>
 
             <div className="mt-4 rounded-ctl border border-line bg-surface2 p-3 text-[13px]">
               {!quote ? <p className="text-muted">Loading price...</p> : (
