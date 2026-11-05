@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-05 · Phase 7: video polish & AI (roadmap items 1-4)
+- **Visual Polish & Background Blur:** Fit+blur framing uses configurable `bgColor` for empty areas; new watermark overlay layer drawn over the render; Caption effects panel exposes background colour and watermark position/scale/opacity controls.
+- **Quality Audit Auto-Fix:** `autoFixOutput` repairs aspect-ratio mismatches (scale+pad) and audio sample-rate (48 kHz) by re-encoding. Pipeline applies auto-fix after audit when technical/loudness/alignment checks fail, re-probes and re-verifies before replacing output. ASS subtitle frame-boundary issues are flagged for pipeline re-render.
+- **LLM Integration & Semantic Highlight:** `GEMINI_API_KEY` env config; `gemini.ts` client generates viral titles/hooks and identifies high-impact words (numbers, currencies, key nouns) for yellow/green semantic highlighting. `toAss` supports per-word semantic highlight colors. POST `/api/clips/[id]/ai-title` generates title+hook from transcript.
+- **Batch Export & Storage Cleanup:** POST `/api/render/batch` queues multiple clip renders in one transaction with a single token charge. POST `/api/storage/cleanup` removes work temp files older than 24h.
+
 ## 2026-11-05 · Phase 6: subtitle studio – Hormozi / Pro Shorts preset & Transcript Editor
 - New "Hormozi" card style: black background, bold Inter Black at 210px, uppercase text, thick black outline and drop shadow. Shown in CardPanel style picker and CardView preview.
 - New "hormozi" subtitle preset: every word is its own ASS event; inactive words are white with thick black outline/shadow, the active word flashes bright `#FFD21F` highlight and scales up via `\t(0,N,\fscx<N>\fscy<N>)` so it pops when spoken. Pop scale, highlight colour, outline and shadow are customisable in the "Caption effects" panel.
@@ -11,7 +17,8 @@
 - Every finished render is measured on the actual MP4: technical format and duration, a full decode, sharpness, loudness/true peak and A/V duration alignment. Black and frozen intervals are reported as diagnostics.
 - The export dialog and the Exports page show a 0 to 100 score, an A/B/C/D grade, findings and concrete recommendations.
 - A full-decode error is fatal: the damaged file is deleted and the job fails instead of delivering it.
-- Auto-fix is not built; the audit only reports. Loudness normalisation already happens during the render.
+- Auto-fix (Phase 7 module 2): `autoFixOutput` repairs aspect-ratio mismatches and audio sample-rate by re-encoding; applied automatically when QC checks fail.
+- Loudness normalisation already happens during the render.
 
 ## 2026-11-05 · Phase 4: editor core
 - Multi-track timeline in the Studio: main video, B-roll, overlay, text, effects, audio, subtitle and card tracks; move, trim, split, duplicate, delete, ripple delete, lock, mute, hide, markers, snapping, multi-select.

@@ -10,9 +10,14 @@ Read this first at the start of every session. One phase per session.
 - First increment: Hormozi / Pro Shorts caption preset — `hormozi` card style (black bg, bold Inter Black 210px, uppercase, thick black outline/drop shadow) and `hormozi` subtitle preset (`\t`, `\fscx`, `\fscy` active-word pop animation). Verified via real FFmpeg burn-in on a 5s 1080×1920 MP4.
 - Second increment: Transcript Editor panel — word-level subtitle editor with inline text fixes, per-word timing nudges within bounds, merge/split/add/delete lines, real-time active-word highlighting synced to the playhead. Edits flow through `useEditor.commit` (undo/redo + debounced server save).
 - Third increment: Caption effect controls — `SubtitleStyle.popScale` field; `toAss` renders `\t(0,N,\fscx<N>\fscy<N>)`. "Caption effects" panel (Studio "effects" tab): highlight colour, pop scale slider, outline and shadow thickness. Also exposed in the Inspector's Subtitles group.
-**Next:** semantic highlight generator (blocked until an LLM provider key is configured) or another subtitle-studio feature from the roadmap below.
+**Next:** Phase 7 roadmap items (in progress):
+- Module 1: Visual Polish & Background Blur — DONE. Fit+blur framing uses configurable bgColor; watermark overlay layer drawn over the render; Caption effects panel exposes background colour + watermark controls.
+- Module 2: Quality Audit Auto-Fix — DONE. autoFixOutput repairs aspect-ratio mismatches (scale+pad) and audio sample-rate (48 kHz); pipeline applies auto-fix after audit when technical/loudness/alignment checks fail, re-probes and re-verifies before replacing output.
+- Module 3: LLM Integration & Semantic Highlight — DONE. GEMINI_API_KEY env config; gemini.ts client for viral titles/hooks and semantic word highlighting; toAss supports per-word semantic highlight colors (yellow/green); POST /api/clips/[id]/ai-title generates title+hook from transcript.
+- Module 4: Batch Export & Storage Cleanup — DONE. POST /api/render/batch queues multiple clip renders in one transaction; POST /api/storage/cleanup removes work temp files older than 24h.
+**Remaining roadmap:** Speaker diarization, Deployment (Docker/reverse proxy/backups), Platform subtitles, Use platform subtitles when available.
 
-Phases: 0 audit (done, `feat/clipkita-pro-phase-0`), 1 rebrand and flags (done, `feat/clipkita-pro-phase-1`), 2 Cinematic Punch (done, `feat/clipkita-pro-phase-2`), 3 audit report and word cards (done, `feat/clipkita-pro-phase-3`), 4 editor core (done, `feat/clipkita-pro-phase-4`), 5 quality audit (done, `feat/clipkita-pro-phase-5`), 6 subtitle studio (done, `main`).
+Phases: 0 audit (done), 1 rebrand and flags (done), 2 Cinematic Punch (done), 3 audit report and word cards (done), 4 editor core (done), 5 quality audit (done, main), 6 subtitle studio (done, main), 7 video polish & AI (done, main).
 
 This file is the single status document. `README.md` covers architecture and setup, `CHANGELOG.md` the release notes, `RECOVERY.md` backup and recovery, `docs/reference/` the style references. The continuation prompt's list (PROJECT_STATUS, HANDOVER, TEST_REPORT and so on) maps onto these files instead of new duplicates.
 
