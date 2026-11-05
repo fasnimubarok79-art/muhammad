@@ -193,8 +193,10 @@ export function assTime(sec: number) {
  * Build an ASS script. Karaoke/pop presets emit one event per word so the highlighted word
  * switches exactly at the word timestamps from the transcript.
  */
-/** `extra` adds styles and events from other burned-in layers (word cards) to the same script. */
-export function toAss(segs: Segment[], style: SubtitleStyle, play = { w: 1080, h: 1920 }, extra: { styles: string[]; events: string[] } = { styles: [], events: [] }) {
+/** `extra` adds styles and events from other burned-in layers (word cards) to the same script.
+ * `wordHighlights` maps lowercase word text to a semantic highlight color (yellow/green),
+ * applied to every occurrence regardless of whether it's the active spoken word. */
+export function toAss(segs: Segment[], style: SubtitleStyle, play = { w: 1080, h: 1920 }, extra: { styles: string[]; events: string[] } = { styles: [], events: [] }, wordHighlights?: Map<string, { color: "yellow" | "green"; reason: string }>) {
   let punchIdx = 0;
   const header = [
     "[Script Info]",
@@ -220,15 +222,19 @@ export function toAss(segs: Segment[], style: SubtitleStyle, play = { w: 1080, h
     const lineOf: number[] = [];
     lines.forEach((l, li) => l.forEach(() => lineOf.push(li)));
     const render = (active: number) =>
-      words
-        .map((w, i) => {
-          const sep = i === 0 ? "" : lineOf[i] !== lineOf[i - 1] ? "\\N" : " ";
-          const t = assText(w.w);
-          if (i !== active || style.preset === "clean") return sep + t;
-          const pop = style.preset === "pop" || style.preset === "impact" ? "\\fscx118\\fscy118\\t(0,90,\\fscx100\\fscy100)" : "";
-          return `${sep}{\\c${hl}${pop}\\blur0.6}${t}{\\r}`;
-        })
-        .join("");
+        words
+          .map((w, i) => {
+            const sep = i === 0 ? "" : lineOf[i] !== lineOf[i - 1] ? "\\N" : " ";
+            const t = assText(w.w);
+            const hlWord = wordHighlights?.get(w.w.toLowerCase());
+            const color = hlWord ? assColor(hlWord.color === "yellow" ? "#FFD21F" : "#3DDC72") : assColor(style.primary);
+            if (style.preset === "clean") return `${sep}{\\c${color}}\\r}${t}{\\r}`;
+            if (i !== active) return `${sep}{\\c${color}}\\r}${t}{\\r}`;
+            const pop = style.preset === "pop" || style.preset === "impact" ? "\\fscx118\\fscy118\\t(0,90,\\fscx100\\fscy100)" : "";
+            const activeColor = hlWord ? assColor(hlWord.color === "yellow" ? "#FFD21F" : "#3DDC72") : hl;
+            return `${sep}{\\c${activeColor}${pop}\\blur0.6}${t}{\\r}`;
+          })
+          .join("");
     if (style.preset === "punch") {
       // two events: context words alone until the keyword is spoken, then context + big keyword popping in
       const k = keywordIndex(words);
@@ -264,7 +270,8 @@ export function toAss(segs: Segment[], style: SubtitleStyle, play = { w: 1080, h
           const s2 = j === 0 ? "" : lineOf[j] !== lineOf[j - 1] ? "\\N" : " ";
           const t2 = assText(w2.w);
           const isActive = j === i;
-          const color = isActive ? hl : assColor(style.primary);
+          const hlWord = wordHighlights?.get(w2.w.toLowerCase());
+          const color = hlWord ? assColor(hlWord.color === "yellow" ? "#FFD21F" : "#3DDC72") : isActive ? hl : assColor(style.primary);
           const anim = isActive ? `\\t(0,${durCs},\\fscx${Math.round(style.popScale * 100)}\\fscy${Math.round(style.popScale * 100)})` : "";
           return `${s2}{\\c${color}\\3c&H000000&\\bord${bord}\\shad${shad}\\4c&H000000&${anim}}${t2}{\\r}`;
         }).join("");

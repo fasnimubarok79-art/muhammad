@@ -24,6 +24,8 @@ const schema = z.object({
   YTDLP_PYTHON: z.string().optional(), // defaults to WHISPER_PYTHON
   YTDLP_JS_RUNTIME: z.string().default("node"), // YouTube needs a JS runtime; "" disables
   SMTP_URL: z.string().optional(),
+  // Optional Gemini API key for AI-generated hooks, titles and semantic word highlighting.
+  GEMINI_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;
