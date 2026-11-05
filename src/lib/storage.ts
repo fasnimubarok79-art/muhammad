@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { randomToken } from "./crypto";
 import { env } from "./env";
@@ -23,3 +23,31 @@ export function keyPath(key: string, base = env().STORAGE_DIR): string {
 export async function ensureDirFor(key: string) {
   await mkdir(path.dirname(keyPath(key)), { recursive: true });
 }
+
+/**
+ * Clean up temporary work files older than `maxAgeHours` (default 24h) from the
+ * work storage area. Best-effort: individual file failures are ignored.
+ */
+export async function cleanupWorkTemp(maxAgeHours = 24): Promise<{ removed: number; bytes: number }> {
+  const root = path.resolve(env().STORAGE_DIR, "work");
+  let removed = 0;
+  let bytes = 0;
+  try {
+    const entries = await readdir(root, { recursive: true });
+    const now = Date.now();
+    const maxAgeMs = maxAgeHours * 60 * 60 * 1000;
+    for (const rel of entries) {
+      const full = path.join(root, rel);
+      const st = await stat(full).catch(() => null);
+      if (!st || !st.isFile()) continue;
+      if (now - st.mtimeMs < maxAgeMs) continue;
+      bytes += st.size;
+      await rm(full, { force: true }).catch(() => undefined);
+      removed++;
+    }
+  } catch {
+    // work directory may not exist yet
+  }
+  return { removed, bytes };
+}
+
