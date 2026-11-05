@@ -4,7 +4,7 @@ import { runCapture } from "./exec";
 
 export type QcInterval = { start: number; end: number };
 
-export type QcCheckId = "technical" | "decode" | "sharpness" | "loudness" | "alignment";
+export type QcCheckId = "technical" | "decode" | "sharpness" | "loudness" | "alignment" | "autofix";
 
 export type QcCheck = {
   id: QcCheckId;
@@ -292,4 +292,96 @@ export async function auditOutput(args: {
     report.recommendations.push(`Quality measurement warning: ${measureWarning}`);
   }
   return report;
+}
+
+/** Result of an auto-fix attempt: which fixes were applied and which were skipped. */
+export type AutoFixResult = {
+  file: string; // path to the (possibly fixed) output file
+  applied: string[]; // human-readable descriptions of fixes applied
+  skipped: string[]; // fixes that could not be applied
+};
+
+/**
+ * Attempt to repair common QC problems on a finished render by re-encoding.
+ * Handles: aspect-ratio mismatch (scale+pad), audio sample-rate normalization (48 kHz).
+ * ASS subtitle frame-boundary issues are reported as skipped because they require
+ * re-rendering with snapped subtitle timings in the pipeline.
+ */
+export async function autoFixOutput(args: {
+  ffmpeg: string;
+  file: string;
+  probe: ProbeResult;
+  expected: { w: number; h: number; durationSec: number };
+  report: QualityReport;
+  timeoutMs: number;
+  signal?: AbortSignal;
+}): Promise<AutoFixResult> {
+  const applied: string[] = [];
+  const skipped: string[] = [];
+  let currentFile = args.file;
+  let fixIdx = 0;
+  const nextOut = () => args.file.replace(/\.mp4$/i, `-autofix-${++fixIdx}.mp4`);
+
+  // 1. Aspect-ratio mismatch: re-encode video with scale+pad to expected dimensions.
+  const v = args.probe.video;
+  if (v && (v.width !== args.expected.w || v.height !== args.expected.h)) {
+    const out = nextOut();
+    try {
+      await runCapture(args.ffmpeg, [
+        "-y", "-hide_banner", "-nostdin",
+        "-i", currentFile,
+        "-vf", `scale=${args.expected.w}:${args.expected.h}:force_original_aspect_ratio=decrease,pad=${args.expected.w}:${args.expected.h}:(ow-iw)/2:(oh-ih)/2:color=black`,
+        "-c:a", "copy",
+        "-movflags", "+faststart",
+        out,
+      ], { timeoutMs: args.timeoutMs, signal: args.signal });
+      applied.push(`Aspect ratio: ${v.width}×${v.height} → ${args.expected.w}×${args.expected.h}`);
+      currentFile = out;
+    } catch (e) {
+      skipped.push(`Aspect-ratio fix failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  // 2. Audio sample-rate normalization: re-encode audio to 48 kHz.
+  const a = args.probe.audio;
+  if (a && a.sampleRate !== 48000) {
+    const out = nextOut();
+    try {
+      await runCapture(args.ffmpeg, [
+        "-y", "-hide_banner", "-nostdin",
+        "-i", currentFile,
+        "-c:v", "copy",
+        "-c:a", "aac", "-ar", "48000", "-b:a", "160k",
+        "-movflags", "+faststart",
+        out,
+      ], { timeoutMs: args.timeoutMs, signal: args.signal });
+      applied.push(`Audio sample rate: ${a.sampleRate} Hz → 48000 Hz`);
+      currentFile = out;
+    } catch (e) {
+      skipped.push(`Audio sample-rate fix failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  // 3. ASS subtitle frame boundary: requires re-render with snapped subtitle timings,
+  //    which the pipeline must handle. Report as skipped here.
+  const align = args.report.checks.find((c) => c.id === "alignment");
+  if (align && align.score < 15) {
+    skipped.push("ASS subtitle frame boundary: re-render with snapped subtitle timings required");
+  }
+
+  // Record an autofix check on the report.
+  const autofix: QcCheck = {
+    id: "autofix",
+    label: "Auto-fix",
+    score: applied.length > 0 ? 25 : 0,
+    max: 25,
+    detail: applied.length > 0 ? `Applied ${applied.length} fix${applied.length === 1 ? "" : "es"}.` : "No auto-fix needed or applicable.",
+  };
+  args.report.checks.push(autofix);
+  args.report.score = clamp(args.report.score + autofix.score, 0, 100);
+  args.report.grade = args.report.score >= 90 ? "A" : args.report.score >= 80 ? "B" : args.report.score >= 70 ? "C" : "D";
+  for (const fix of applied) args.report.recommendations.push(`Auto-fixed: ${fix}`);
+  for (const skip of skipped) args.report.recommendations.push(`Could not auto-fix: ${skip}`);
+
+  return { file: currentFile, applied, skipped };
 }
